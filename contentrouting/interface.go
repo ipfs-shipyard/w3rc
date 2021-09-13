@@ -12,8 +12,13 @@ import (
 //
 // Routing focuses only on the retrieval half of the interface: how do
 // I located content given a content identifier?
+//
+// The returned channel of RoutingRecords must be consumed until closed by the
+// Caller. The same instance of a provider may block if previous calls have
+// left un-drained records. The provider will close the channel once complete
+// or once the context is canceled.
 type Routing interface {
-	FindProvidersAsync(context.Context, cid.Cid) <-chan RoutingRecord
+	FindProviders(context.Context, cid.Cid, ...RoutingOptions) <-chan RoutingRecord
 }
 
 // A RoutingRecord is an abstract record of a content routing response.
@@ -22,6 +27,9 @@ type RoutingRecord interface {
 	Protocol() multicodec.Code
 	Payload() interface{}
 }
+
+// RoutingOptions further specify a content routing request
+type RoutingOptions func()
 
 // RoutingErrorProtocol is the protocol identity for conveying a routing error
 const RoutingErrorProtocol = multicodec.ReservedEnd

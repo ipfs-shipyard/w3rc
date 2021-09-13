@@ -53,7 +53,7 @@ type HTTPResponse struct {
 	Providers  []PeerAddrInfo
 }
 
-func (hr *HTTPRouter) FindProvidersAsync(ctx context.Context, c cid.Cid) <-chan contentrouting.RoutingRecord {
+func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...contentrouting.RoutingOptions) <-chan contentrouting.RoutingRecord {
 	ch := make(chan contentrouting.RoutingRecord, 1)
 	go func() {
 		defer close(ch)
