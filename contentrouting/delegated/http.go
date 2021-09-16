@@ -20,21 +20,25 @@ func NewDelegatedHTTP(url string) contentrouting.Routing {
 	}
 }
 
+// HTTPRouter contains the state for an active delegated HTTP client.
 type HTTPRouter struct {
 	prefix string
 	http.Transport
 }
 
+// HTTPResponseResult is the expected type of an individual query response from a server
 type HTTPResponseResult struct {
 	Cid    cid.Cid
 	Values []IndexerValue
 }
 
+// IndexerValue is the response metadata of an individual record
 type IndexerValue struct {
 	ProviderID string
 	Metadata   []byte
 }
 
+// Extract separates the protocol from the protocol-specific metadata in a record
 func (v *IndexerValue) Extract() (uint64, []byte, error) {
 	protocol, len, err := varint.FromUvarint(v.Metadata)
 	if err != nil {
@@ -43,16 +47,19 @@ func (v *IndexerValue) Extract() (uint64, []byte, error) {
 	return protocol, v.Metadata[len:], nil
 }
 
+// PeerAddrInfo contains the addresses of a provider
 type PeerAddrInfo struct {
 	ID    string
 	Addrs []string
 }
 
+// HTTPResponse is the full response expected from a delegated router
 type HTTPResponse struct {
 	CidResults []HTTPResponseResult
 	Providers  []PeerAddrInfo
 }
 
+// FindProviders implements the content routing interface
 func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...contentrouting.RoutingOptions) <-chan contentrouting.RoutingRecord {
 	ch := make(chan contentrouting.RoutingRecord, 1)
 	go func() {
@@ -89,6 +96,7 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 			ch <- contentrouting.RecordError(c, err)
 			return
 		}
+		fmt.Printf("decode to %v\n", parsedResp)
 
 		// turn parsedResp into records.
 		for _, candidateCid := range parsedResp.CidResults {
