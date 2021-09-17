@@ -25,6 +25,7 @@ type Routing interface {
 type RoutingRecord interface {
 	Request() cid.Cid
 	Protocol() multicodec.Code
+	Provider() interface{}
 	Payload() interface{}
 }
 
@@ -53,6 +54,11 @@ func (r *RoutingError) Protocol() multicodec.Code {
 // Payload is the underlying error
 func (r *RoutingError) Payload() interface{} {
 	return r.Error
+}
+
+// Provider is empty
+func (r *RoutingError) Provider() interface{} {
+	return nil
 }
 
 // RecordError returns a RoutingRecord indicating a specified error
