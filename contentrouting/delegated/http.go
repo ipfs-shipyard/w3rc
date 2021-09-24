@@ -109,7 +109,7 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 					// TODO: warn
 					continue
 				}
-				ch <- &httpRecord{Cid: c, Proto: multicodec.Code(code), Metadata: md}
+				ch <- &httpRecord{Cid: c, Proto: multicodec.Code(code), Metadata: md, ProviderID: val.ProviderID}
 			}
 		}
 	}()
@@ -118,9 +118,10 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 }
 
 type httpRecord struct {
-	Cid      cid.Cid
-	Proto    multicodec.Code
-	Metadata []byte
+	Cid        cid.Cid
+	Proto      multicodec.Code
+	Metadata   []byte
+	ProviderID string
 }
 
 // Request is the Cid that triggered this routing error
@@ -136,4 +137,9 @@ func (r *httpRecord) Protocol() multicodec.Code {
 // Payload is the underlying error
 func (r *httpRecord) Payload() interface{} {
 	return r.Metadata
+}
+
+// Payload is the underlying error
+func (r *httpRecord) Provider() interface{} {
+	return r.ProviderID
 }
