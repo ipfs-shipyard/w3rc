@@ -16,7 +16,7 @@ type Option func(config) error
 // NewSession creates a Session with given configuration.
 // A session represents a set of related queries for content addressed data.
 // Connections to peers may stay open for the life of a session.
-func NewSession(...Option) Session {
+func NewSession(ls ipld.LinkSystem, opts ...Option) Session {
 	return nil
 }
 
