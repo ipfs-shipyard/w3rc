@@ -5,78 +5,33 @@ import (
 	"net/http"
 	"path"
 
+	v0 "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
 	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-varint"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multicodec"
+	"github.com/multiformats/go-multihash"
 )
 
 // A MockDelegatedProvider is the state of the http server acting as a counterparty
 // to the HTTP delegated client.
 type MockDelegatedProvider struct {
 	http.Server
-	provider string
-	records  map[cid.Cid]MockProviderRecord
-}
-
-// A MockProviderRecord contains the response for a given CID
-type MockProviderRecord struct {
-	Protocol uint64
-	Metadata []byte
-	Provider string
+	records map[string]model.MultihashResult
 }
 
 // OnReq handles requests from the http delegated routing client
 func (m *MockDelegatedProvider) OnReq(resp http.ResponseWriter, req *http.Request) {
 	_, queryCid := path.Split(req.URL.Path)
-	qcid, err := cid.Parse(queryCid)
+	mh, err := multihash.FromB58String(queryCid)
 	if err != nil {
 		resp.WriteHeader(http.StatusNotAcceptable)
 		return
 	}
-	if qresp, ok := m.records[qcid]; ok {
-		// write response.
-		rcrd := append(varint.ToUvarint(qresp.Protocol), qresp.Metadata...)
-		type respStrct struct {
-			CidResults []struct {
-				Cid    cid.Cid
-				Values []struct {
-					ProviderID string
-					Metadata   []byte
-				}
-			}
-			Providers []struct {
-				ID    string
-				Addrs []string
-			}
-		}
-		outVal := respStrct{
-			CidResults: []struct {
-				Cid    cid.Cid
-				Values []struct {
-					ProviderID string
-					Metadata   []byte
-				}
-			}{{
-				Cid: qcid,
-				Values: []struct {
-					ProviderID string
-					Metadata   []byte
-				}{{
-					ProviderID: m.provider,
-					Metadata:   rcrd,
-				},
-				},
-			}},
-			Providers: []struct {
-				ID    string
-				Addrs []string
-			}{
-				{
-					ID:    m.provider,
-					Addrs: []string{qresp.Provider},
-				},
-			},
-		}
-		outBytes, err := json.Marshal(outVal)
+	if qresp, ok := m.records[string(mh)]; ok {
+		outBytes, err := json.Marshal(model.FindResponse{
+			MultihashResults: []model.MultihashResult{qresp},
+		})
 		if err != nil {
 			resp.WriteHeader(http.StatusInternalServerError)
 			return
@@ -93,20 +48,27 @@ func (m *MockDelegatedProvider) OnReq(resp http.ResponseWriter, req *http.Reques
 // delegated content routing client
 func New() *MockDelegatedProvider {
 	mdp := MockDelegatedProvider{}
-	mdp.provider = "mockprovider"
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", mdp.OnReq)
 	mdp.Server.Handler = mux
-	mdp.records = make(map[cid.Cid]MockProviderRecord)
+	mdp.records = make(map[string]model.MultihashResult)
 	return &mdp
 }
 
 // Add adds a record for the provider to return.
-func (m *MockDelegatedProvider) Add(c cid.Cid, providerAddr string, protocol uint64, metadata []byte) error {
-	m.records[c] = MockProviderRecord{
-		Protocol: protocol,
-		Metadata: metadata,
-		Provider: providerAddr,
+func (m *MockDelegatedProvider) Add(c cid.Cid, peerAddr peer.AddrInfo, protocol uint64, metadata []byte) error {
+	m.records[string(c.Hash())] = model.MultihashResult{
+		Multihash: c.Hash(),
+		ProviderResults: []model.ProviderResult{
+			{
+				ContextID: []byte("something"),
+				Metadata: v0.Metadata{
+					Data:       metadata,
+					ProtocolID: multicodec.Code(protocol),
+				},
+				Provider: peerAddr,
+			},
+		},
 	}
 	return nil
 }

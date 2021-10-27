@@ -11,6 +11,9 @@ import (
 	"github.com/ipfs-shipyard/w3rc/contentrouting/delegated"
 	mockdelegatedrouter "github.com/ipfs-shipyard/w3rc/contentrouting/delegated/mock"
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
+	p2ptestutil "github.com/libp2p/go-libp2p-netutil"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 )
@@ -25,12 +28,24 @@ func TestHTTPFetch(t *testing.T) {
 	go serv.Serve(listener)
 	defer serv.Close()
 
-	cr := delegated.NewDelegatedHTTP(fmt.Sprintf("http://%s/", listener.Addr().String()))
-
+	cr, err := delegated.NewDelegatedHTTP(fmt.Sprintf("http://%s/", listener.Addr().String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := p2ptestutil.RandTestBogusIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
 	// A valid record:
 	foundMH, _ := multihash.Encode([]byte("hello world"), multihash.IDENTITY)
 	foundCid := cid.NewCidV1(uint64(multicodec.DagPb), foundMH)
-	serv.Add(foundCid, "/ip/127.0.0.1/tcp/8080/tls", 1, []byte("hello data"))
+	addr := peer.AddrInfo{
+		ID: p.ID(),
+		Addrs: []multiaddr.Multiaddr{
+			multiaddr.StringCast("/ip4/127.0.0.1/tcp/8080/tls"),
+		},
+	}
+	serv.Add(foundCid, addr, 1, []byte("hello data"))
 	rcrdChan := cr.FindProviders(context.Background(), foundCid)
 	rcrds := doDrain(rcrdChan)
 	if len(rcrds) != 1 {
@@ -53,7 +68,7 @@ func TestHTTPFetch(t *testing.T) {
 	}
 
 	// An invalid record:
-	serv.Add(otherCid, "/ip/127.0.0.1/tcp/8080/tls", contentrouting.RoutingErrorProtocol, []byte("error"))
+	serv.Add(otherCid, addr, contentrouting.RoutingErrorProtocol, []byte("error"))
 	rcrdChan = cr.FindProviders(context.Background(), otherCid)
 	rcrds = doDrain(rcrdChan)
 	if len(rcrds) != 1 {
