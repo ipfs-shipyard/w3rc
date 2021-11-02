@@ -25,13 +25,13 @@ import (
 var log = logging.Logger("filecoin_retrieval")
 
 type transfer struct {
-	ctx          context.Context
+	ctx          context.Context //lint:ignore U1000 implementation in progress
 	proposal     retrievalmarket.DealProposal
 	pchRequired  bool
 	pchAddr      address.Address
 	pchLane      uint64
 	nonce        uint64
-	totalPayment abi.TokenAmount
+	totalPayment abi.TokenAmount //lint:ignore U1000 implementation in progress
 	events       chan exchange.EventData
 	errors       chan error
 }
@@ -68,12 +68,14 @@ func NewFilecoinExchange(node Node, dataTransfer datatransfer.Manager) *Filecoin
 	}
 }
 
+//lint:ignore U1000 implementation in progress
 func finishWithError(tf *transfer, err error) {
 	close(tf.events)
 	tf.errors <- err
 	close(tf.errors)
 }
 
+//lint:ignore U1000 implementation in progress
 func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState datatransfer.ChannelState) {
 	// Copy chanid so it can be used later in the callback
 	fe.transfersLk.RLock()
@@ -88,7 +90,7 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 	case <-tf.ctx.Done():
 		finishWithError(tf, tf.ctx.Err())
 		return
-	case tf.events <- exchange.EventData{event, channelState}:
+	case tf.events <- exchange.EventData{Event: event, State: channelState}:
 	}
 
 	switch event.Code {
