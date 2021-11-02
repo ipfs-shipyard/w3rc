@@ -35,6 +35,8 @@ type RoutingOptions func()
 // RoutingErrorProtocol is the protocol identity for conveying a routing error
 const RoutingErrorProtocol = multicodec.ReservedEnd
 
+var _ RoutingRecord = (*RoutingError)(nil)
+
 // RoutingError is a RoutingRecord used for signalling an underlying error
 type RoutingError struct {
 	cid.Cid
