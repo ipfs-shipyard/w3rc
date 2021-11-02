@@ -77,8 +77,6 @@ func TestHTTPFetch(t *testing.T) {
 	if rcrds[0].Protocol() != contentrouting.RoutingErrorProtocol {
 		t.Fatalf("expected error, got %d", rcrds[0].Protocol())
 	}
-
-	return
 }
 
 func doDrain(c <-chan contentrouting.RoutingRecord) []contentrouting.RoutingRecord {
