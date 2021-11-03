@@ -1,0 +1,3 @@
+# USAGE is printed by default
+w3rc
+stdout 'USAGE'

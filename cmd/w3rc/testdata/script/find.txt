@@ -1,0 +1,24 @@
+# find without argumets is usage
+! w3rc find
+stderr 'Required flag "indexer" not set'
+stdout 'USAGE'
+
+# find without CID is error
+! w3rc find --indexer http://localhost:1234
+stderr 'a CID for which to find providers must be specified'
+! stdout .
+
+# find with invalid CID is error
+! w3rc find --indexer http://localhost:1234 fish
+stderr 'failed to parse CID: '
+! stdout .
+
+# find with vaild CID but offline indexer is error
+! w3rc find --indexer http://localhost:1234 ${MOCK_DISCOVERABLE_CID}
+stderr 'dial'
+! stdout .
+
+# find with disoverable CID and available indexer finds a provider
+w3rc find --indexer ${MOCK_INDEXER} ${MOCK_DISCOVERABLE_CID}
+stdout 'Found 1 provider.*'
+! stderr .
