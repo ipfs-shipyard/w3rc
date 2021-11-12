@@ -4,22 +4,23 @@ import (
 	"context"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/ipfs-shipyard/w3rc/planning"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 )
 
-func NewSimpleSinglePlanner(minPolicyScore planning.PolicyScore, maxWaitTime time.Duration) planning.SinglePlanner {
-	return &simpleSinglePlanner{minPolicyScore, maxWaitTime}
+func NewSimpleSinglePlanner(minPolicyScore planning.PolicyScore, maxWaitTime time.Duration, clock clock.Clock) planning.SinglePlanner {
+	return &simpleSinglePlanner{minPolicyScore, maxWaitTime, clock}
 }
 
 type simpleSinglePlanner struct {
 	minPolicyScore planning.PolicyScore
 	maxWaitTime    time.Duration
+	clock          clock.Clock
 }
 
-func (sp *simpleSinglePlanner) makeTransportPlan(ctx context.Context, targetRoot cid.Cid, targetSelector ipld.Node, potentialRequests <-chan planning.PotentialRequest) planning.TransportPlan {
-	timer := time.NewTimer(sp.maxWaitTime)
+func (sp *simpleSinglePlanner) makeTransportPlan(ctx context.Context, timer *clock.Timer, targetRoot cid.Cid, targetSelector ipld.Node, potentialRequests <-chan planning.PotentialRequest) planning.TransportPlan {
 	var bestCandidate planning.PotentialRequest
 	for {
 		select {
@@ -47,12 +48,10 @@ func (sp *simpleSinglePlanner) GeneratePlan(ctx context.Context, targetRoot cid.
 	// then generate a transport plan with a single request
 	// generate the transport request frim targetRoot & targetSelector + routing record
 	transportPlanChan := make(chan planning.TransportPlan, 1)
+	timer := sp.clock.Timer(sp.maxWaitTime)
 	go func() {
-		tp := sp.makeTransportPlan(ctx, targetRoot, targetSelector, potentialRequests)
-		select {
-		case transportPlanChan <- tp:
-		case <-ctx.Done():
-		}
+		tp := sp.makeTransportPlan(ctx, timer, targetRoot, targetSelector, potentialRequests)
+		transportPlanChan <- tp
 	}()
 	return transportPlanChan
 }

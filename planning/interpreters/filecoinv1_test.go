@@ -1,4 +1,4 @@
-package planning
+package interpreters
 
 import (
 	"errors"
@@ -6,9 +6,11 @@ import (
 
 	"github.com/filecoin-project/indexer-reference-provider/metadata"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
+	"github.com/ipfs-shipyard/w3rc/planning"
+	"github.com/ipfs-shipyard/w3rc/planning/policies"
+	"github.com/ipfs-shipyard/w3rc/testutil"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multicodec"
-	"github.com/multiformats/go-multihash"
 )
 
 var _ contentrouting.RoutingRecord = (*testRoutingRecord)(nil)
@@ -38,8 +40,7 @@ func (t testRoutingRecord) Payload() interface{} {
 func TestFilecoinV1RecordInterpreter_Interpret(t *testing.T) {
 	tests := map[string]struct {
 		givenRecord       contentrouting.RoutingRecord
-		givenPolicies     []Policy
-		wantPolicyResults map[PolicyName]PolicyScore
+		wantPolicyResults map[planning.Policy]planning.PolicyScore
 		wantErr           string
 	}{
 		"RoutingErrorRecordIsError": {
@@ -77,26 +78,26 @@ func TestFilecoinV1RecordInterpreter_Interpret(t *testing.T) {
 		},
 		"PaidFilecoinV1ExchangeScoreIsZeroForPreferFreePolicy": {
 			givenRecord: generateFilecoinV1RoutingRecord(t, metadata.FilecoinV1Data{
-				PieceCID: generateCid(t),
+				PieceCID: testutil.GenerateCids(1)[0],
 			}),
-			wantPolicyResults: map[PolicyName]PolicyScore{
-				preferFreePolicyName: PolicyScore(0),
+			wantPolicyResults: map[planning.Policy]planning.PolicyScore{
+				policies.PreferFree{}: planning.PolicyScore(0),
 			},
 		},
 		"FreeFilecoinV1ExchangeScoreIsOneForPreferFreePolicy": {
 			givenRecord: generateFilecoinV1RoutingRecord(t, metadata.FilecoinV1Data{
-				PieceCID: generateCid(t),
+				PieceCID: testutil.GenerateCids(1)[0],
 				IsFree:   true,
 			}),
-			wantPolicyResults: map[PolicyName]PolicyScore{
-				preferFreePolicyName: PolicyScore(1),
+			wantPolicyResults: map[planning.Policy]planning.PolicyScore{
+				policies.PreferFree{}: planning.PolicyScore(1),
 			},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			fri := &FilecoinV1RecordInterpreter{}
-			got, err := fri.Interpret(tt.givenRecord, tt.givenPolicies)
+			got, err := fri.Interpret(tt.givenRecord)
 			if tt.wantErr != "" {
 				if err == nil || err.Error() != tt.wantErr {
 					t.Errorf("Interpret() error = %v, wantErr %v", err, tt.wantErr)
@@ -129,12 +130,4 @@ func generateFilecoinV1RoutingRecord(t *testing.T, fv1d metadata.FilecoinV1Data)
 		protocol: p,
 		payload:  dtm.Data,
 	}
-}
-
-func generateCid(t *testing.T) cid.Cid {
-	mh, err := multihash.Sum([]byte("fish"), uint64(multicodec.Sha2_256), -1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return cid.NewCidV1(uint64(multicodec.Raw), mh)
 }
