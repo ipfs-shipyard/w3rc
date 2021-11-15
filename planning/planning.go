@@ -2,14 +2,11 @@ package planning
 
 import (
 	"context"
-	"errors"
-	"time"
 
-	"github.com/filecoin-project/indexer-reference-provider/metadata"
-	v0 "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multicodec"
 )
 
@@ -25,6 +22,20 @@ type TransportRequest struct {
 // TransportPlan indicates one or more TransportRequests we want to execute
 type TransportPlan struct {
 	TransportRequests []TransportRequest
+}
+
+func NewSimpleTransportPlan(targetRoot cid.Cid, targetSelector ipld.Node, rr contentrouting.RoutingRecord) TransportPlan {
+	return TransportPlan{
+		TransportRequests: []TransportRequest{
+			{
+				Codec:           rr.Protocol(),
+				Root:            cidlink.Link{Cid: targetRoot},
+				Selector:        targetSelector,
+				RoutingProvider: rr.Provider(),
+				RoutingPayload:  rr.Payload(),
+			},
+		},
+	}
 }
 
 // SinglePlanner takes a stream of possible transport requests we can make
@@ -64,81 +75,4 @@ func (p *SimplePlanner) PlanRequests(ctx context.Context, root cid.Cid, selector
 	// multiple request iterations
 	panic("not implemented")
 
-}
-
-func NewSimpleSinglePlanner(minPolicyScore PolicyScore, maxWaitTime time.Duration) SinglePlanner {
-	return &simpleSinglePlanner{minPolicyScore, maxWaitTime}
-}
-
-type simpleSinglePlanner struct {
-	minPolicyScore PolicyScore
-	maxWaitTime    time.Duration
-}
-
-func (sp *simpleSinglePlanner) GeneratePlan(ctx context.Context, targetRoot cid.Cid, targetSelector ipld.Node, potentialRequests <-chan PotentialRequest) <-chan TransportPlan {
-	// for here, just read values until either max time is reached or min policy score is met,
-	// then generate a transport plan with a single request
-	// generate the transport request frim targetRoot & targetSelector + routing record
-	panic("not implemented")
-
-}
-
-var _ RoutingRecordInterpreter = (*FilecoinV1RecordInterpreter)(nil)
-
-type FilecoinV1RecordInterpreter struct {
-}
-
-func (fri FilecoinV1RecordInterpreter) Interpret(record contentrouting.RoutingRecord, policies []Policy) (PolicyResults, error) {
-
-	// decode the record (or error) -- use metadata from filecoin
-	// check for free or paid policy
-	// return PolicyResults that when given "prefer_free" returns 1 if retrieval is free or zero if its paid
-
-	if record.Protocol() == contentrouting.RoutingErrorProtocol {
-		err, ok := record.Payload().(error)
-		if !ok {
-			return nil, errors.New("routing record payload not match expected type: error")
-		}
-		return nil, err
-	}
-
-	data, ok := record.Payload().([]byte)
-	if !ok {
-		return nil, errors.New("filecoin v1 routing record payload does not match expected type: []byte")
-	}
-	rm := v0.Metadata{
-		ProtocolID: record.Protocol(),
-		Data:       data,
-	}
-
-	dtm, err := metadata.FromIndexerMetadata(rm)
-	if err != nil {
-		return nil, err
-	}
-
-	fv1d, err := metadata.DecodeFilecoinV1Data(dtm)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: How should policies argument impact the returned results?
-
-	return &simplePolicyResults{isFree: fv1d.IsFree}, nil
-}
-
-var _ PolicyResults = (*simplePolicyResults)(nil)
-
-type simplePolicyResults struct {
-	isFree bool
-}
-
-// TODO: separating policies in their own package means we cannot use the PreferFree policy here due to cyclic dependency.
-// Consider restructuring packages.
-var preferFreePolicyName = PolicyName("prefer_free")
-
-func (s simplePolicyResults) Score(name PolicyName) PolicyScore {
-	if s.isFree && name == preferFreePolicyName {
-		return 1
-	}
-	return 0
 }

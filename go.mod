@@ -3,6 +3,7 @@ module github.com/ipfs-shipyard/w3rc
 go 1.16
 
 require (
+	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-data-transfer v1.10.1
@@ -12,6 +13,7 @@ require (
 	github.com/filecoin-project/specs-actors v0.9.13
 	github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99
 	github.com/ipfs/go-cid v0.1.0
+	github.com/ipfs/go-ipfs-blocksutil v0.0.1 // indirect
 	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipld/go-ipld-prime v0.12.4-0.20211018101421-492705d1efdc
 	github.com/libp2p/go-libp2p-core v0.9.0
@@ -19,4 +21,5 @@ require (
 	github.com/multiformats/go-multiaddr v0.4.0
 	github.com/multiformats/go-multicodec v0.3.1-0.20210902112759-1539a079fd61
 	github.com/multiformats/go-multihash v0.0.16
+	github.com/stretchr/testify v1.7.0 // indirect
 )
