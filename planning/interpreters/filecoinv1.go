@@ -24,7 +24,7 @@ func (fri FilecoinV1RecordInterpreter) Interpret(record contentrouting.RoutingRe
 	if record.Protocol() == contentrouting.RoutingErrorProtocol {
 		err, ok := record.Payload().(error)
 		if !ok {
-			return nil, errors.New("routing record payload not match expected type: error")
+			return nil, errors.New("routing record payload does not match expected type: error")
 		}
 		return nil, err
 	}
