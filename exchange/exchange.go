@@ -7,7 +7,15 @@ import (
 	"github.com/multiformats/go-multicodec"
 )
 
-type Event interface{}
+type Event int
+
+const (
+	StartEvent Event = iota
+	ErrorEvent       // temporary failure
+	ProgressEvent
+	SuccessEvent
+	FailureEvent
+)
 
 type State interface{}
 
@@ -21,5 +29,5 @@ type Exchange interface {
 	Code() multicodec.Code
 
 	// Request data based on root, selector, and routing parameters
-	RequestData(ctx context.Context, request ipld.Link, selector ipld.Node, routingProvider interface{}, routingPayload interface{}) (<-chan EventData, <-chan error)
+	RequestData(ctx context.Context, request ipld.Link, selector ipld.Node, routingProvider interface{}, routingPayload interface{}) <-chan EventData
 }

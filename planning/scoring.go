@@ -2,6 +2,9 @@ package planning
 
 import "github.com/ipfs-shipyard/w3rc/contentrouting"
 
+// Note: this is a future-looking class for a more extensible planning policy.
+// It is not currently used.
+
 type PolicyName string
 
 type Policy interface {

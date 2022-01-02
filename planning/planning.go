@@ -1,5 +1,8 @@
 package planning
 
+// Note: this is a future-looking class for a more extensible planning policy.
+// It is not currently used.
+
 import (
 	"context"
 	"errors"
@@ -9,9 +12,12 @@ import (
 	v0 "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/multiformats/go-multicodec"
 )
+
+var log = logging.Logger("w3rc-planning")
 
 // TransportRequest describes a single request over a single transport
 type TransportRequest struct {
@@ -24,7 +30,8 @@ type TransportRequest struct {
 
 // TransportPlan indicates one or more TransportRequests we want to execute
 type TransportPlan struct {
-	TransportRequests []TransportRequest
+	TransportRequests []*TransportRequest
+	Error             error
 }
 
 // SinglePlanner takes a stream of possible transport requests we can make

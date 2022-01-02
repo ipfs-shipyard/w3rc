@@ -5,17 +5,21 @@ import (
 
 	"github.com/ipfs-shipyard/w3rc"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/bsadapter"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/urfave/cli/v2"
 )
 
 // Get retrieves an individual CID or dag
 func Get(c *cli.Context) error {
+	if c.Bool("verbose") {
+		log.SetLogLevel("*", "debug")
+	}
 	var err error
 	store := memstore.Store{}
 
@@ -32,10 +36,6 @@ func Get(c *cli.Context) error {
 	if c.Bool("recursive") {
 		selectorSpec = selectorparse.CommonSelector_MatchAllRecursively
 	}
-	s, err := selector.CompileSelector(selectorSpec)
-	if err != nil {
-		return err
-	}
 
 	ls := cidlink.DefaultLinkSystem()
 	if c.IsSet("file") {
@@ -51,23 +51,28 @@ func Get(c *cli.Context) error {
 		ls.SetWriteStorage(&store)
 	}
 
-	w3s := w3rc.NewSession(ls)
+	opts := []w3rc.Option{}
+	if c.IsSet("indexer") {
+		opts = append(opts, w3rc.WithIndexer(c.String("indexer")))
+	}
+	w3s, err := w3rc.NewSession(ls, opts...)
+	if err != nil {
+		return err
+	}
 	if w3s == nil {
 		return fmt.Errorf("failed to create session")
 	}
-	if _, err = w3s.Get(c.Context, parsedCid, s); err != nil {
+	if _, err = w3s.Get(c.Context, parsedCid, selectorSpec); err != nil {
 		return err
 	}
 
 	// print
 	if !c.IsSet("file") {
 		outStream := c.App.Writer
-		bytes, err := store.Get(c.Context, parsedCid.KeyString())
+		_, err := car.TraverseV1(c.Context, &ls, parsedCid, selectorSpec, outStream)
 		if err != nil {
 			return err
 		}
-		_, _ = outStream.Write(bytes)
-		//todo: handle recursive to stdout by writing the car
 	}
 
 	return nil
