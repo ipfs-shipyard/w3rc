@@ -26,7 +26,7 @@ type ExchangeMux struct {
 func DefaultMux() *ExchangeMux {
 	em := ExchangeMux{
 		knownCodecs: make(map[multicodec.Code]Exchange),
-		mux:         make(chan MuxEvent, 0),
+		mux:         make(chan MuxEvent),
 		wg:          sync.WaitGroup{},
 	}
 	em.wg.Add(1)

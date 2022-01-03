@@ -14,7 +14,6 @@ import (
 	gsnet "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	csms "github.com/libp2p/go-conn-security-multistream"
-	"github.com/libp2p/go-libp2p-core/connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -83,8 +82,6 @@ func apply(cfg *config, opts ...Option) error {
 	}
 	return nil
 }
-
-type tptC func(h host.Host, u *tptu.Upgrader, cg connmgr.ConnectionGater) (transport.Transport, error)
 
 func applyDefaults(lsys ipld.LinkSystem, cfg *config) error {
 	if cfg.host == nil {
@@ -162,6 +159,10 @@ func applyDefaults(lsys ipld.LinkSystem, cfg *config) error {
 			return err
 		}
 		dtManager, err := datatransfer.NewDataTransfer(cfg.ds, tmpDir, dtNet, tp)
+		if err != nil {
+			log.Errorf("Failed to create data transfer subsystem: %s", err)
+			return err
+		}
 		// Tell datatransfer to notify when ready.
 		dtReady := make(chan error)
 		dtManager.OnReady(func(e error) {
