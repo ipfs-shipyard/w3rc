@@ -3,7 +3,6 @@ package exchange
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/ipfs-shipyard/w3rc/planning"
@@ -53,7 +52,6 @@ func (e *ExchangeMux) Register(ex Exchange) error {
 func (e *ExchangeMux) Add(ctx context.Context, tr *planning.TransportRequest) error {
 	ex, ok := e.knownCodecs[tr.Codec]
 	if !ok {
-		fmt.Printf("err unknown codec.\n")
 		return ErrUnknownCodec
 	}
 	evs := ex.RequestData(ctx, tr.Root, tr.Selector, tr.RoutingProvider, tr.RoutingPayload)

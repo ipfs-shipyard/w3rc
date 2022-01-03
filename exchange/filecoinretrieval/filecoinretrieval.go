@@ -61,15 +61,26 @@ type FilecoinExchange struct {
 	host         host.Host
 	transfers    map[datatransfer.ChannelID]*transfer
 	transfersLk  sync.RWMutex
+	cancel       datatransfer.Unsubscribe
 }
 
 func NewFilecoinExchange(node PaymentAPI, h host.Host, dataTransfer datatransfer.Manager) *FilecoinExchange {
-	return &FilecoinExchange{
+	err := dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	if err != nil {
+		log.Warnf("failed to register deal response voucher: %s", err)
+		return nil
+	}
+
+	fex := FilecoinExchange{
 		paymentAPI:   node,
 		host:         h,
 		dataTransfer: dataTransfer,
 		transfers:    make(map[datatransfer.ChannelID]*transfer),
 	}
+	unsub := fex.dataTransfer.SubscribeToEvents(fex.subscriber)
+	fex.cancel = unsub
+
+	return &fex
 }
 
 //lint:ignore U1000 implementation in progress
@@ -88,6 +99,9 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 		return
 	}
 	fe.transfersLk.RUnlock()
+	if tf.events == nil {
+		return
+	}
 
 	// TODO: are these the correct mappings?
 	ev := exchange.ProgressEvent
@@ -165,6 +179,7 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 		// Ignore this
 	case datatransfer.FinishTransfer:
 		close(tf.events)
+		tf.events = nil
 	case datatransfer.Cancel:
 		finishWithError(tf, fmt.Errorf("data transfer canceled"))
 	default:
@@ -253,7 +268,13 @@ func (fe *FilecoinExchange) RequestData(ctx context.Context, root ipld.Link, sel
 	if err != nil {
 		return singleTerminalError(err)
 	}
+	tf.ctx = ctx
 	tf.events = make(chan exchange.EventData)
 	fe.transfers[chid] = &tf
 	return tf.events
+}
+
+// cancel subscription to data transfer.
+func (fe *FilecoinExchange) Close() {
+	fe.cancel()
 }

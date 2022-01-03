@@ -51,7 +51,6 @@ func (s *simpleSession) Get(ctx context.Context, root cid.Cid, selector datamode
 				log.Warnf("error in transport: %s\n", transportEvent.State)
 				continue
 			}
-			fmt.Printf("got transport event: %s / %d\n", transportEvent.State, transportEvent.Event)
 			if transportEvent.State == exchange.FailureEvent {
 				s.scheduler.Reconcile(transportEvent.Source, false)
 			} else if transportEvent.State == exchange.SuccessEvent {

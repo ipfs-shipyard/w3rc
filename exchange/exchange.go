@@ -30,4 +30,7 @@ type Exchange interface {
 
 	// Request data based on root, selector, and routing parameters
 	RequestData(ctx context.Context, request ipld.Link, selector ipld.Node, routingProvider interface{}, routingPayload interface{}) <-chan EventData
+
+	// Complete usage of the exchange
+	Close()
 }
