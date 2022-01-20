@@ -46,6 +46,7 @@ func Get(c *cli.Context) error {
 		bsa := bsadapter.Adapter{Wrapped: bs}
 		ls.SetReadStorage(&bsa)
 		ls.SetWriteStorage(&bsa)
+		defer bs.Finalize()
 	} else {
 		ls.SetReadStorage(&store)
 		ls.SetWriteStorage(&store)

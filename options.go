@@ -3,7 +3,6 @@ package w3rc
 import (
 	"context"
 	"crypto/rand"
-	"io/ioutil"
 
 	datatransferi "github.com/filecoin-project/go-data-transfer"
 	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
@@ -111,7 +110,6 @@ func applyDefaults(lsys ipld.LinkSystem, cfg *config) error {
 		if err != nil {
 			return err
 		}
-		upgrader := new(tptu.Upgrader)
 
 		host, err := basichost.NewHost(net, &basichost.HostOpts{})
 		if err != nil {
@@ -123,17 +121,19 @@ func applyDefaults(lsys ipld.LinkSystem, cfg *config) error {
 		secMuxer.AddTransport(noise.ID, noiseSec)
 		tlsSec, _ := tls.New(priv)
 		secMuxer.AddTransport(tls.ID, tlsSec)
-		upgrader.Secure = secMuxer
 
 		muxMuxer := msmux.NewBlankTransport()
 		muxMuxer.AddTransport("/yamux/1.0.0", yamux.DefaultTransport)
 		muxMuxer.AddTransport("/mplex/6.7.0", mplex.DefaultTransport)
-		upgrader.Muxer = muxMuxer
+		upgrader, err := tptu.New(secMuxer, muxMuxer)
+		if err != nil {
+			return err
+		}
 
-		tcpT, _ := tcp.NewTCPTransport(upgrader)
+		tcpT, _ := tcp.NewTCPTransport(upgrader, net.ResourceManager())
 		for _, t := range []transport.Transport{
 			tcpT,
-			ws.New(upgrader),
+			ws.New(upgrader, net.ResourceManager()),
 		} {
 			if err := net.AddTransport(t); err != nil {
 				return err
@@ -151,14 +151,8 @@ func applyDefaults(lsys ipld.LinkSystem, cfg *config) error {
 		gs := gsimpl.New(context.Background(), gsNet, lsys)
 
 		dtNet := dtnetwork.NewFromLibp2pHost(cfg.host)
-		tp := gstransport.NewTransport(cfg.host.ID(), gs, dtNet)
-		// TODO: clean up after this temp dir on close
-		tmpDir, err := ioutil.TempDir("", "w3rc")
-		if err != nil {
-			log.Errorf("Failed to create temp dir for datatransfer: %s", err)
-			return err
-		}
-		dtManager, err := datatransfer.NewDataTransfer(cfg.ds, tmpDir, dtNet, tp)
+		tp := gstransport.NewTransport(cfg.host.ID(), gs)
+		dtManager, err := datatransfer.NewDataTransfer(cfg.ds, dtNet, tp)
 		if err != nil {
 			log.Errorf("Failed to create data transfer subsystem: %s", err)
 			return err
