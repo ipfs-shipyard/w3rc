@@ -39,6 +39,7 @@ type SimpleScheduler struct {
 }
 
 // Schedule begins a schedule to get a cid+selector given a stream of potential routes.
+// SimpleScheduler only handles one Schedule call concurrently.
 func (s *SimpleScheduler) Schedule(ctx context.Context, root cid.Cid, selector ipld.Node, potentialTransports <-chan contentrouting.RoutingRecord) <-chan TransportPlan {
 	s.plan = make(chan TransportPlan)
 	s.selector = selector
@@ -52,11 +53,13 @@ func (s *SimpleScheduler) background(ctx context.Context, potentialTransports <-
 	// todo: periods should change based on board state:
 	// * no active: short
 	// * pending: based on how recently progress has come out of those active transfers
+	// TODO: also need feedback loop - if the attempted option fails we should try the next immediately.
 	ticker := time.NewTicker(100 * time.Millisecond) //todo: make configurable
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
+			log.Infof("schedule closed by context: %w", ctx.Err())
 			return
 		case newOption, more := <-potentialTransports:
 			if !more {
@@ -86,7 +89,7 @@ func (s *SimpleScheduler) background(ctx context.Context, potentialTransports <-
 }
 
 func (s *SimpleScheduler) emitNext() {
-	best := s.board.Best()
+	best := s.board.HighestScore()
 	if best != nil {
 		s.plan <- TransportPlan{
 			TransportRequests: []*TransportRequest{best},

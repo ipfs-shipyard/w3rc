@@ -25,12 +25,12 @@ type EventData struct {
 }
 
 type Exchange interface {
-	// The identifier for this exchange protocol
+	// Code is the identifier for this exchange protocol
 	Code() multicodec.Code
 
-	// Request data based on root, selector, and routing parameters
+	// RequestData based on root, selector, and routing parameters
 	RequestData(ctx context.Context, request ipld.Link, selector ipld.Node, routingProvider interface{}, routingPayload interface{}) <-chan EventData
 
-	// Complete usage of the exchange
+	// Close completes use of this exchange
 	Close()
 }

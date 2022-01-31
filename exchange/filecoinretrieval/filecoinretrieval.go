@@ -103,16 +103,12 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 		return
 	}
 
-	// TODO: are these the correct mappings?
 	ev := exchange.ProgressEvent
-	switch event.Code {
-	case datatransfer.FinishTransfer:
-	case datatransfer.Complete:
+	switch channelState.Status() {
+	case datatransfer.Completed:
 		ev = exchange.SuccessEvent
-	case datatransfer.Error:
-	case datatransfer.Disconnected:
-		ev = exchange.ErrorEvent
-	case datatransfer.ReceiveDataError:
+	case datatransfer.Cancelled:
+	case datatransfer.Failed:
 		ev = exchange.FailureEvent
 	}
 
@@ -169,6 +165,9 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 				}
 			case retrievalmarket.DealStatusFundsNeededUnseal:
 				finishWithError(tf, fmt.Errorf("received unexpected payment request for unsealing data"))
+			case retrievalmarket.DealStatusRejected:
+				log.Warnf("deal rejected: %s", resType.Message)
+				finishWithError(tf, fmt.Errorf("deal rejected: %s", resType.Message))
 			default:
 				log.Debugf("unrecognized voucher response status: %v", retrievalmarket.DealStatuses[resType.Status])
 			}
@@ -225,6 +224,7 @@ func (fe *FilecoinExchange) RequestData(ctx context.Context, root ipld.Link, sel
 		return singleTerminalError(fmt.Errorf("err not implemented"))
 	}
 
+	// params hardcoded for free retrieval request
 	params, err := retrievalmarket.NewParamsV1(
 		big.NewInt(0),
 		0,

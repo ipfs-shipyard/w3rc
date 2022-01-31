@@ -22,8 +22,10 @@ type simpleSession struct {
 }
 
 func (s *simpleSession) Get(ctx context.Context, root cid.Cid, selector datamodel.Node) (ipld.Node, error) {
-	records := s.router.FindProviders(ctx, root)
-	plan := s.scheduler.Schedule(ctx, root, selector, records)
+	getCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	records := s.router.FindProviders(getCtx, root)
+	plan := s.scheduler.Schedule(getCtx, root, selector, records)
 	work := s.mux.Subscribe()
 
 	workDone := false
@@ -38,13 +40,12 @@ func (s *simpleSession) Get(ctx context.Context, root cid.Cid, selector datamode
 				continue
 			}
 			for _, tr := range nextPlan.TransportRequests {
-				if err := s.mux.Add(ctx, tr); err != nil {
-					s.scheduler.Begin(tr)
+				s.scheduler.Begin(tr)
+				if err := s.mux.Add(getCtx, tr); err != nil {
 					s.scheduler.Reconcile(tr, false)
 					log.Warnf("could not honor transport req: %s\n", err)
 					continue
 				}
-				s.scheduler.Begin(tr)
 			}
 		case transportEvent, more := <-work:
 			if transportEvent.Event == exchange.ErrorEvent {
@@ -60,8 +61,10 @@ func (s *simpleSession) Get(ctx context.Context, root cid.Cid, selector datamode
 			if !more {
 				// if we have everything, things are good.
 				link := cidlink.Link{Cid: root}
-				node, err := s.ls.Load(ipld.LinkContext{Ctx: ctx}, link, basicnode.Prototype.Any)
-				return node, err
+				// TODO: this isn't enough to know that we've actually loaded the full selector, just that
+				// the mux has ended without an error. we need to know we can load the full requested selector
+				// to conclude that work is done.
+				return s.ls.Load(ipld.LinkContext{Ctx: getCtx}, link, basicnode.Prototype.Any)
 			}
 		}
 	}

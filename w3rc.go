@@ -77,7 +77,7 @@ type Session interface {
 	// `CommonSelector_MatchAllRecursively` should be provided.
 	Get(ctx context.Context, root cid.Cid, selector datamodel.Node) (ipld.Node, error)
 
-	// TODO:
+	// TODO: GetStream is not yet implemented - should follow logic of get but with incremental responses.
 	//GetStream(ctx context.Context, root cid.Cid, selector datamodel.Node) ResultChan
 	Close() error
 }

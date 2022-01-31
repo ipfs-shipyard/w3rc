@@ -3,6 +3,7 @@ package w3rc
 import (
 	"context"
 	"crypto/rand"
+	"time"
 
 	datatransferi "github.com/filecoin-project/go-data-transfer"
 	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
@@ -161,12 +162,15 @@ func applyDefaults(lsys ipld.LinkSystem, cfg *config) error {
 		dtReady := make(chan error)
 		dtManager.OnReady(func(e error) {
 			dtReady <- e
+			close(dtReady)
 		})
 
 		// Start datatransfer.  The context passed in allows Start to be canceled
 		// if fsm migration takes too long.  Timeout for dtManager.Start() is not
 		// handled here, so pass context.Background().
-		if err = dtManager.Start(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err = dtManager.Start(ctx); err != nil {
 			log.Errorf("Failed to start datatransfer: %s", err)
 			return err
 		}

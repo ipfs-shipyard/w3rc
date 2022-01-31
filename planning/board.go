@@ -3,6 +3,7 @@ package planning
 import "sync"
 
 // Board keeps track of the state machine of transfers.
+// requests transition from possible->pending->{failed, complete}
 type Board struct {
 	lock     sync.Mutex
 	Possible []*TransportRequest
@@ -74,8 +75,12 @@ func (b *Board) AddPossible(r *TransportRequest) {
 	b.Possible = append(b.Possible, r)
 }
 
-// Best determines the next most promissing transfer to attempt
-func (b *Board) Best() *TransportRequest {
+// HighestScore determines the next most promissing transfer to attempt
+// currently this is a very simple setup:
+// weight increases for each successful transfer from that provider.
+// weight decreses by 5 for each unsuccessful transfer from that provider.
+// weight decreases by 1 for each in-progress transfer from that provider.
+func (b *Board) HighestScore() *TransportRequest {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	if len(b.Possible) == 0 {
@@ -84,17 +89,17 @@ func (b *Board) Best() *TransportRequest {
 	scores := make([]int, len(b.Possible))
 	for i, t := range b.Possible {
 		for _, g := range b.Complete {
-			if g.RoutingProvider == t.RoutingProvider {
+			if providersEqual(g.RoutingProvider, t.RoutingProvider) {
 				scores[i]++
 			}
 		}
 		for _, b := range b.Failed {
-			if b.RoutingProvider == t.RoutingProvider {
+			if providersEqual(b.RoutingProvider, t.RoutingProvider) {
 				scores[i] -= 5
 			}
 		}
 		for _, p := range b.Pending {
-			if p.RoutingProvider == t.RoutingProvider {
+			if providersEqual(p.RoutingProvider, t.RoutingProvider) {
 				scores[i]--
 			}
 		}
@@ -108,4 +113,19 @@ func (b *Board) Best() *TransportRequest {
 		}
 	}
 	return b.Possible[maxIndex]
+}
+
+func providersEqual(a, b interface{}) bool {
+	type stringable interface {
+		String() string
+	}
+	as, ok := a.(stringable)
+	if !ok {
+		return a == b
+	}
+	bs, ok := b.(stringable)
+	if !ok {
+		return false
+	}
+	return as.String() == bs.String()
 }
