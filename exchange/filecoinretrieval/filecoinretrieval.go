@@ -1,24 +1,26 @@
 package filecoinretrieval
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
 	"sync"
 
 	"github.com/filecoin-project/go-address"
-	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs-shipyard/w3rc/exchange"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/libp2p/go-libp2p-core/host"
 	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/multiformats/go-multicodec"
 )
 
@@ -33,7 +35,6 @@ type transfer struct {
 	nonce        uint64
 	totalPayment abi.TokenAmount //lint:ignore U1000 implementation in progress
 	events       chan exchange.EventData
-	errors       chan error
 }
 
 type Event datatransfer.Event
@@ -48,31 +49,44 @@ type VoucherCreateResult struct {
 	Shortfall big.Int
 }
 
-type Node interface {
+type PaymentAPI interface {
 	GetPaychWithMinFunds(ctx context.Context, dest address.Address) (address.Address, error)
 	AllocateLane(ctx context.Context, payCh address.Address) (uint64, error)
 	CreateVoucher(ctx context.Context, payCh address.Address, vouch paych.SignedVoucher) (*VoucherCreateResult, error)
 }
 
 type FilecoinExchange struct {
-	node         Node
+	paymentAPI   PaymentAPI
 	dataTransfer datatransfer.Manager
+	host         host.Host
 	transfers    map[datatransfer.ChannelID]*transfer
 	transfersLk  sync.RWMutex
+	cancel       datatransfer.Unsubscribe
 }
 
-func NewFilecoinExchange(node Node, dataTransfer datatransfer.Manager) *FilecoinExchange {
-	return &FilecoinExchange{
-		node:         node,
-		dataTransfer: dataTransfer,
+func NewFilecoinExchange(node PaymentAPI, h host.Host, dataTransfer datatransfer.Manager) *FilecoinExchange {
+	err := dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	if err != nil {
+		log.Warnf("failed to register deal response voucher: %s", err)
+		return nil
 	}
+
+	fex := FilecoinExchange{
+		paymentAPI:   node,
+		host:         h,
+		dataTransfer: dataTransfer,
+		transfers:    make(map[datatransfer.ChannelID]*transfer),
+	}
+	unsub := fex.dataTransfer.SubscribeToEvents(fex.subscriber)
+	fex.cancel = unsub
+
+	return &fex
 }
 
 //lint:ignore U1000 implementation in progress
 func finishWithError(tf *transfer, err error) {
+	tf.events <- exchange.EventData{Event: exchange.FailureEvent, State: err}
 	close(tf.events)
-	tf.errors <- err
-	close(tf.errors)
 }
 
 //lint:ignore U1000 implementation in progress
@@ -85,12 +99,24 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 		return
 	}
 	fe.transfersLk.RUnlock()
+	if tf.events == nil {
+		return
+	}
+
+	ev := exchange.ProgressEvent
+	switch channelState.Status() {
+	case datatransfer.Completed:
+		ev = exchange.SuccessEvent
+	case datatransfer.Cancelled:
+	case datatransfer.Failed:
+		ev = exchange.FailureEvent
+	}
 
 	select {
 	case <-tf.ctx.Done():
 		finishWithError(tf, tf.ctx.Err())
 		return
-	case tf.events <- exchange.EventData{Event: event, State: channelState}:
+	case tf.events <- exchange.EventData{Event: ev, State: channelState}:
 	}
 
 	switch event.Code {
@@ -108,7 +134,7 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 
 					tf.totalPayment = big.Add(tf.totalPayment, resType.PaymentOwed)
 
-					vres, err := fe.node.CreateVoucher(tf.ctx, tf.pchAddr, paych.SignedVoucher{
+					vres, err := fe.paymentAPI.CreateVoucher(tf.ctx, tf.pchAddr, paych.SignedVoucher{
 						ChannelAddr: tf.pchAddr,
 						Lane:        tf.pchLane,
 						Nonce:       tf.nonce,
@@ -139,6 +165,9 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 				}
 			case retrievalmarket.DealStatusFundsNeededUnseal:
 				finishWithError(tf, fmt.Errorf("received unexpected payment request for unsealing data"))
+			case retrievalmarket.DealStatusRejected:
+				log.Warnf("deal rejected: %s", resType.Message)
+				finishWithError(tf, fmt.Errorf("deal rejected: %s", resType.Message))
 			default:
 				log.Debugf("unrecognized voucher response status: %v", retrievalmarket.DealStatuses[resType.Status])
 			}
@@ -149,7 +178,7 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 		// Ignore this
 	case datatransfer.FinishTransfer:
 		close(tf.events)
-		close(tf.errors)
+		tf.events = nil
 	case datatransfer.Cancel:
 		finishWithError(tf, fmt.Errorf("data transfer canceled"))
 	default:
@@ -158,37 +187,51 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 }
 
 func (fe *FilecoinExchange) Code() multicodec.Code {
-	// TODO: fill in
-	return multicodec.Code(0)
+	return multicodec.Code(4128768)
 }
 
-func singleTerminalError(err error) (<-chan exchange.EventData, <-chan error) {
+func singleTerminalError(err error) <-chan exchange.EventData {
 	resultChan := make(chan exchange.EventData)
-	errChan := make(chan error, 1)
-	errChan <- err
+	resultChan <- exchange.EventData{Event: exchange.FailureEvent, State: err}
 	close(resultChan)
-	close(errChan)
-	return resultChan, errChan
+	return resultChan
 }
 
-func (fe *FilecoinExchange) RequestData(ctx context.Context, root ipld.Link, selector ipld.Node, routingProvider interface{}, routingPayload interface{}) (<-chan exchange.EventData, <-chan error) {
+func (fe *FilecoinExchange) RequestData(ctx context.Context, root ipld.Link, selector ipld.Node, routingProvider interface{}, routingPayload interface{}) <-chan exchange.EventData {
 
 	var tf transfer
 
-	miner := peer.ID(routingProvider.(string))
-
-	var resp retrievalmarket.QueryResponse
-	if err := cborutil.ReadCborRPC(bytes.NewReader(routingPayload.([]byte)), &resp); err != nil {
-		return singleTerminalError(err)
+	ai, ok := routingProvider.(peer.AddrInfo)
+	if !ok {
+		return singleTerminalError(fmt.Errorf("routing provider is not in expected format"))
 	}
 
+	fe.host.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.TempAddrTTL)
+	miner := ai.ID
+
+	dtm, err := metadata.FromIndexerMetadata(stiapi.Metadata{
+		ProtocolID: fe.Code(),
+		Data:       routingPayload.([]byte),
+	})
+	if err != nil {
+		return singleTerminalError(err)
+	}
+	filData, err := metadata.DecodeFilecoinV1Data(dtm)
+	if err != nil {
+		return singleTerminalError(err)
+	}
+	if !filData.FastRetrieval && !filData.VerifiedDeal {
+		return singleTerminalError(fmt.Errorf("err not implemented"))
+	}
+
+	// params hardcoded for free retrieval request
 	params, err := retrievalmarket.NewParamsV1(
-		resp.MinPricePerByte,
-		resp.MaxPaymentInterval,
-		resp.MaxPaymentIntervalIncrease,
+		big.NewInt(0),
+		0,
+		0,
 		selector,
-		nil,
-		resp.UnsealPrice,
+		&filData.PieceCID,
+		big.NewInt(0),
 	)
 
 	if err != nil {
@@ -205,15 +248,15 @@ func (fe *FilecoinExchange) RequestData(ctx context.Context, root ipld.Link, sel
 
 	// Stats
 
-	tf.pchRequired = !tf.proposal.PricePerByte.IsZero() || !tf.proposal.UnsealPrice.IsZero()
+	tf.pchRequired = !(tf.proposal.PricePerByte.Int != nil && tf.proposal.PricePerByte.IsZero()) || !(tf.proposal.UnsealPrice.Int != nil && tf.proposal.UnsealPrice.IsZero())
 
 	if tf.pchRequired {
 		// Get the payment channel and create a lane for this retrieval
-		tf.pchAddr, err = fe.node.GetPaychWithMinFunds(ctx, resp.PaymentAddress)
+		tf.pchAddr, err = fe.paymentAPI.GetPaychWithMinFunds(ctx, address.Address{})
 		if err != nil {
 			return singleTerminalError(fmt.Errorf("failed to get payment channel: %w", err))
 		}
-		tf.pchLane, err = fe.node.AllocateLane(ctx, tf.pchAddr)
+		tf.pchLane, err = fe.paymentAPI.AllocateLane(ctx, tf.pchAddr)
 		if err != nil {
 			return singleTerminalError(fmt.Errorf("failed to allocate lane: %w", err))
 		}
@@ -225,8 +268,13 @@ func (fe *FilecoinExchange) RequestData(ctx context.Context, root ipld.Link, sel
 	if err != nil {
 		return singleTerminalError(err)
 	}
+	tf.ctx = ctx
 	tf.events = make(chan exchange.EventData)
-	tf.errors = make(chan error, 1)
 	fe.transfers[chid] = &tf
-	return tf.events, tf.errors
+	return tf.events
+}
+
+// cancel subscription to data transfer.
+func (fe *FilecoinExchange) Close() {
+	fe.cancel()
 }

@@ -3,21 +3,46 @@ package w3rc
 import (
 	"context"
 
+	"github.com/ipfs-shipyard/w3rc/contentrouting/delegated"
+	"github.com/ipfs-shipyard/w3rc/exchange"
+	"github.com/ipfs-shipyard/w3rc/exchange/filecoinretrieval"
+	"github.com/ipfs-shipyard/w3rc/planning"
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/datamodel"
 )
 
-type config struct{}
-
-// An Option allows opening a Session with configured options.
-type Option func(config) error
+var log = logging.Logger("w3rc")
 
 // NewSession creates a Session with given configuration.
 // A session represents a set of related queries for content addressed data.
 // Connections to peers may stay open for the life of a session.
-func NewSession(ls ipld.LinkSystem, opts ...Option) Session {
-	return nil
+func NewSession(ls ipld.LinkSystem, opts ...Option) (Session, error) {
+	conf := config{}
+	if err := apply(&conf, opts...); err != nil {
+		return nil, err
+	}
+	if err := applyDefaults(ls, &conf); err != nil {
+		return nil, err
+	}
+	router, err := delegated.NewDelegatedHTTP(conf.indexerURL)
+	if err != nil {
+		return nil, err
+	}
+
+	session := simpleSession{
+		ls:        ls,
+		router:    router,
+		mux:       exchange.DefaultMux(),
+		scheduler: planning.NewSimpleScheduler(),
+	}
+
+	dt := conf.dt
+	fce := filecoinretrieval.NewFilecoinExchange(nil, conf.host, dt)
+	session.mux.Register(fce)
+
+	return &session, nil
 }
 
 // ResultChan provides progress updates from a call to `GetStream`
@@ -50,7 +75,9 @@ type Session interface {
 	// Get returns a dag rooted at root. If selector is `nil`, the single block
 	// of the root will be assumed. If the full dag under root is desired, (following links)
 	// `CommonSelector_MatchAllRecursively` should be provided.
-	Get(ctx context.Context, root cid.Cid, selector selector.Selector) (ipld.Node, error)
-	GetStream(ctx context.Context, root cid.Cid, selector selector.Selector) ResultChan
+	Get(ctx context.Context, root cid.Cid, selector datamodel.Node) (ipld.Node, error)
+
+	// TODO: GetStream is not yet implemented - should follow logic of get but with incremental responses.
+	//GetStream(ctx context.Context, root cid.Cid, selector datamodel.Node) ResultChan
 	Close() error
 }

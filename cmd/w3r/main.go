@@ -30,6 +30,15 @@ func main1() int {
 						Aliases: []string{"f", "o", "output"},
 						Usage:   "output to a file rather than stdout",
 					},
+					&cli.StringFlag{
+						Name:  "indexer",
+						Usage: "query a specific indexer endpoint",
+					},
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "verbose output",
+					},
 				},
 			},
 		},
