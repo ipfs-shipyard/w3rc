@@ -5,6 +5,7 @@ import (
 
 	"github.com/ipfs-shipyard/w3rc/contentrouting/delegated"
 	"github.com/ipfs-shipyard/w3rc/exchange"
+	"github.com/ipfs-shipyard/w3rc/exchange/bitswap"
 	"github.com/ipfs-shipyard/w3rc/exchange/filecoinretrieval"
 	"github.com/ipfs-shipyard/w3rc/planning"
 	"github.com/ipfs/go-cid"
@@ -41,6 +42,8 @@ func NewSession(ls ipld.LinkSystem, opts ...Option) (Session, error) {
 	dt := conf.dt
 	fce := filecoinretrieval.NewFilecoinExchange(nil, conf.host, dt)
 	session.mux.Register(fce)
+	bse := bitswap.NewBitswaExchange(conf.host, &ls)
+	session.mux.Register(bse)
 
 	return &session, nil
 }

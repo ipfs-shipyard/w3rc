@@ -34,7 +34,8 @@ require (
 	github.com/libp2p/go-tcp-transport v0.5.0
 	github.com/libp2p/go-ws-transport v0.6.0
 	github.com/multiformats/go-multiaddr v0.5.0
-	github.com/multiformats/go-multicodec v0.3.1-0.20211210143421-a526f306ed2c
+	github.com/multiformats/go-multicodec v0.4.1
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/urfave/cli/v2 v2.3.0
+	github.com/willscott/go-selfish-bitswap-client v0.0.0-20220301113754-0683d205d750
 )
