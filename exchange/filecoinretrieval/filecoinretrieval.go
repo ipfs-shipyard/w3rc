@@ -187,7 +187,7 @@ func (fe *FilecoinExchange) subscriber(event datatransfer.Event, channelState da
 }
 
 func (fe *FilecoinExchange) Code() multicodec.Code {
-	return multicodec.Code(4128768)
+	return multicodec.TransportGraphsyncFilecoinv1
 }
 
 func singleTerminalError(err error) <-chan exchange.EventData {
