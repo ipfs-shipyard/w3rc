@@ -33,6 +33,30 @@ func main1() int {
 					&cli.StringFlag{
 						Name:  "indexer",
 						Usage: "query a specific indexer endpoint",
+						Value: "https://cid.contact",
+					},
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "verbose output",
+					},
+				},
+			},
+			{
+				Name:   "serve",
+				Usage:  "Serve CIDs",
+				Action: Serve,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "listen",
+						Usage:   "listen on this address",
+						Aliases: []string{"l"},
+						Value:   ":8080",
+					},
+					&cli.StringFlag{
+						Name:  "indexer",
+						Usage: "query a specific indexer endpoint",
+						Value: "https://cid.contact",
 					},
 					&cli.BoolFlag{
 						Name:    "verbose",

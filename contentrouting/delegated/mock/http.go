@@ -5,11 +5,10 @@ import (
 	"net/http"
 	"path"
 
-	v0 "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -56,17 +55,19 @@ func New() *MockDelegatedProvider {
 }
 
 // Add adds a record for the provider to return.
-func (m *MockDelegatedProvider) Add(c cid.Cid, peerAddr peer.AddrInfo, protocol uint64, metadata []byte) error {
+func (m *MockDelegatedProvider) Add(c cid.Cid, peerAddr peer.AddrInfo, md metadata.Protocol) error {
+	mdb := metadata.New(md)
+	mdbb, err := mdb.MarshalBinary()
+	if err != nil {
+		return err
+	}
 	m.records[string(c.Hash())] = model.MultihashResult{
 		Multihash: c.Hash(),
 		ProviderResults: []model.ProviderResult{
 			{
 				ContextID: []byte("something"),
-				Metadata: v0.Metadata{
-					Data:       metadata,
-					ProtocolID: multicodec.Code(protocol),
-				},
-				Provider: peerAddr,
+				Metadata:  mdbb,
+				Provider:  peerAddr,
 			},
 		},
 	}

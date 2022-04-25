@@ -1,12 +1,12 @@
 package delegated_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
 	"testing"
 
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	"github.com/ipfs-shipyard/w3rc/contentrouting/delegated"
 	mockdelegatedrouter "github.com/ipfs-shipyard/w3rc/contentrouting/delegated/mock"
@@ -45,16 +45,16 @@ func TestHTTPFetch(t *testing.T) {
 			multiaddr.StringCast("/ip4/127.0.0.1/tcp/8080/tls"),
 		},
 	}
-	serv.Add(foundCid, addr, 1, []byte("hello data"))
+	serv.Add(foundCid, addr, metadata.Bitswap{})
 	rcrdChan := cr.FindProviders(context.Background(), foundCid)
 	rcrds := doDrain(rcrdChan)
 	if len(rcrds) != 1 {
 		t.Fatalf("expected 1 record, got %d", len(rcrds))
 	}
-	if rcrds[0].Protocol() != 1 {
-		t.Fatalf("expected protocol '1', got %d", rcrds[0].Protocol())
+	if rcrds[0].Protocol() != multicodec.TransportBitswap {
+		t.Fatalf("expected bitswap protocol , got %d", rcrds[0].Protocol())
 	}
-	if !bytes.Equal(rcrds[0].Payload().([]byte), []byte("hello data")) {
+	if rcrds[0].Payload() != nil {
 		t.Fatal("unexpected payload")
 	}
 
@@ -68,13 +68,14 @@ func TestHTTPFetch(t *testing.T) {
 	}
 
 	// An invalid record:
-	serv.Add(otherCid, addr, contentrouting.RoutingErrorProtocol, []byte("error"))
+	proto := metadata.GraphsyncFilecoinV1{PieceCID: cid.NewCidV1(0, []byte{0}), VerifiedDeal: true, FastRetrieval: true}
+	serv.Add(otherCid, addr, &proto)
 	rcrdChan = cr.FindProviders(context.Background(), otherCid)
 	rcrds = doDrain(rcrdChan)
 	if len(rcrds) != 1 {
 		t.Fatalf("expected 1 record, got %d", len(rcrds))
 	}
-	if rcrds[0].Protocol() != contentrouting.RoutingErrorProtocol {
+	if rcrds[0].Protocol() != multicodec.TransportGraphsyncFilecoinv1 {
 		t.Fatalf("expected error, got %d", rcrds[0].Protocol())
 	}
 }

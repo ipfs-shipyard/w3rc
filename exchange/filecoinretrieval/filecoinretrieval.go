@@ -13,7 +13,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs-shipyard/w3rc/exchange"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
@@ -191,7 +190,7 @@ func (fe *FilecoinExchange) Code() multicodec.Code {
 }
 
 func singleTerminalError(err error) <-chan exchange.EventData {
-	resultChan := make(chan exchange.EventData)
+	resultChan := make(chan exchange.EventData, 1)
 	resultChan <- exchange.EventData{Event: exchange.FailureEvent, State: err}
 	close(resultChan)
 	return resultChan
@@ -209,16 +208,10 @@ func (fe *FilecoinExchange) RequestData(ctx context.Context, root ipld.Link, sel
 	fe.host.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.TempAddrTTL)
 	miner := ai.ID
 
-	dtm, err := metadata.FromIndexerMetadata(stiapi.Metadata{
-		ProtocolID: fe.Code(),
-		Data:       routingPayload.([]byte),
-	})
-	if err != nil {
-		return singleTerminalError(err)
-	}
-	filData, err := metadata.DecodeFilecoinV1Data(dtm)
-	if err != nil {
-		return singleTerminalError(err)
+	filData, ok := routingPayload.(*metadata.GraphsyncFilecoinV1)
+	if !ok {
+		fmt.Printf("bad routing payload type\n")
+		return singleTerminalError(fmt.Errorf("payload in unexpected format. expected metadata.GraphsyncFilecoinV1, got %T", routingPayload))
 	}
 	if !filData.FastRetrieval && !filData.VerifiedDeal {
 		return singleTerminalError(fmt.Errorf("err not implemented"))

@@ -43,13 +43,13 @@ func (s *simpleSession) Get(ctx context.Context, root cid.Cid, selector datamode
 				s.scheduler.Begin(tr)
 				if err := s.mux.Add(getCtx, tr); err != nil {
 					s.scheduler.Reconcile(tr, false)
-					log.Warnf("could not honor transport req: %s\n", err)
+					log.Warnf("could not honor transport req: %s", err)
 					continue
 				}
 			}
 		case transportEvent, more := <-work:
 			if transportEvent.Event == exchange.ErrorEvent {
-				log.Warnf("error in transport: %s\n", transportEvent.State)
+				log.Warnf("error in transport: %s", transportEvent.State)
 				continue
 			}
 			if transportEvent.State == exchange.FailureEvent {

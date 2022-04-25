@@ -7,9 +7,12 @@ import (
 
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 )
+
+var log = logging.Logger("scheduler")
 
 // ErrNoTransport is an error option a transport plan my emit when no transports are currently possible
 var ErrNoTransport = fmt.Errorf("no routes available")

@@ -3,11 +3,13 @@ package delegated
 import (
 	"context"
 
+	"github.com/filecoin-project/index-provider/metadata"
 	finderhttpclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	cid "github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multicodec"
+	"github.com/multiformats/go-varint"
 )
 
 // NewDelegatedHTTP makes a routing provider backed by an HTTP endpoint.
@@ -31,7 +33,6 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 	ch := make(chan contentrouting.RoutingRecord, 1)
 	go func() {
 		defer close(ch)
-
 		parsedResp, err := hr.Client.Find(ctx, c.Hash())
 		if err != nil {
 			ch <- contentrouting.RecordError(c, err)
@@ -65,12 +66,21 @@ func (r *httpRecord) Request() cid.Cid {
 
 // Protocol indicates that this record is an error
 func (r *httpRecord) Protocol() multicodec.Code {
-	return r.Val.Metadata.ProtocolID
+	code, _, err := varint.FromUvarint(r.Val.Metadata)
+	if err == nil {
+		return multicodec.Code(code)
+	}
+	return 0
 }
 
 // Payload is the underlying error
 func (r *httpRecord) Payload() interface{} {
-	return r.Val.Metadata.Data
+	md := metadata.Metadata{}
+	if err := md.UnmarshalBinary(r.Val.Metadata); err != nil {
+		return nil
+	}
+	fp := r.Protocol()
+	return md.Get(fp)
 }
 
 // Payload is the underlying error
