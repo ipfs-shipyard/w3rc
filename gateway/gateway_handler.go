@@ -21,6 +21,8 @@ import (
 	logging "github.com/ipfs/go-log"
 	ipfspath "github.com/ipfs/go-path"
 	resolver "github.com/ipfs/go-path/resolver"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -342,12 +344,12 @@ func (i *gatewayHandler) getOrHeadHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	// Resolve path to the final DAG node for the ETag
-	resolvedPath, err := i.api.ResolvePath(r.Context(), contentPath)
+	resolvedPath, err := ResolvePath(r.Context(), i.api, contentPath)
 	switch err {
 	case nil:
-	case coreiface.ErrOffline:
-		webError(w, "ipfs resolve -r "+debugStr(contentPath.String()), err, http.StatusServiceUnavailable)
-		return
+	//case coreiface.ErrOffline:
+	//	webError(w, "ipfs resolve -r "+debugStr(contentPath.String()), err, http.StatusServiceUnavailable)
+	//	return
 	default:
 		// if Accept is text/html, see if ipfs-404.html is present
 		if i.servePretty404IfPresent(w, r, contentPath) {
@@ -445,7 +447,7 @@ func (i *gatewayHandler) servePretty404IfPresent(w http.ResponseWriter, r *http.
 }
 
 func (i *gatewayHandler) addUserHeaders(w http.ResponseWriter) {
-	for k, v := range i.config.Headers {
+	for k, v := range i.config.HTTPHeaders {
 		w.Header()[k] = v
 	}
 }
@@ -540,7 +542,7 @@ func (i *gatewayHandler) buildIpfsRootsHeader(contentPath string, r *http.Reques
 		}
 		sp.WriteString("/")
 		sp.WriteString(root)
-		resolvedSubPath, err := i.api.ResolvePath(r.Context(), NewPath(sp.String()))
+		resolvedSubPath, err := ResolvePath(r.Context(), i.api, NewPath(sp.String()))
 		if err != nil {
 			return "", err
 		}
@@ -706,7 +708,8 @@ func (i *gatewayHandler) searchUpTreeFor404(r *http.Request, contentPath Path) (
 		if parsed404Path.IsValid() != nil {
 			break
 		}
-		resolvedPath, err := i.api.ResolvePath(r.Context(), parsed404Path)
+
+		resolvedPath, err := ResolvePath(r.Context(), i.api, parsed404Path)
 		if err != nil {
 			continue
 		}
@@ -843,10 +846,12 @@ func handleSuperfluousNamespace(w http.ResponseWriter, r *http.Request, contentP
 func (i *gatewayHandler) handleGettingFirstBlock(r *http.Request, begin time.Time, contentPath Path, resolvedPath Resolved) *requestError {
 	// Update the global metric of the time it takes to read the final root block of the requested resource
 	// NOTE: for legacy reasons this happens before we go into content-type specific code paths
-	_, err := i.api.Block().Get(r.Context(), resolvedPath)
-	if err != nil {
+	ls := i.api.NewSession(r.Context())
+	f := i.api.FetcherForSession(ls)
+	if _, err := f.BlockOfType(r.Context(), cidlink.Link{Cid: resolvedPath.Cid()}, basicnode.Prototype.Any); err != nil {
 		return newRequestError("ipfs block get "+resolvedPath.Cid().String(), err, http.StatusInternalServerError)
 	}
+
 	ns := contentPath.Namespace()
 	timeToGetFirstContentBlock := time.Since(begin).Seconds()
 	i.unixfsGetMetric.WithLabelValues(ns).Observe(timeToGetFirstContentBlock) // deprecated, use firstContentBlockGetMetric instead

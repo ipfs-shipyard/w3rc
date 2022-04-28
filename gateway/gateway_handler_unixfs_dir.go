@@ -12,6 +12,7 @@ import (
 	files "github.com/ipfs/go-ipfs-files"
 	gopath "github.com/ipfs/go-path"
 	resolver "github.com/ipfs/go-path/resolver"
+	"github.com/ipld/go-ipld-prime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -21,7 +22,7 @@ import (
 // serveDirectory returns the best representation of UnixFS directory
 //
 // It will return index.html if present, or generate directory listing otherwise.
-func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWriter, r *http.Request, resolvedPath Resolved, contentPath Path, dir files.Directory, begin time.Time, logger *zap.SugaredLogger) {
+func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWriter, r *http.Request, resolvedPath Resolved, contentPath Path, dir ipld.Node, begin time.Time, logger *zap.SugaredLogger) {
 	ctx, span := otel.Tracer("gateway").Start(ctx, "gateway.serveDirectory", trace.WithAttributes(attribute.String("path", resolvedPath.String())))
 	defer span.End()
 
@@ -109,7 +110,7 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 			size = humanize.Bytes(uint64(s))
 		}
 
-		resolved, err := i.api.ResolvePath(ctx, JoinPath(resolvedPath, dirit.Name()))
+		resolved, err := ResolvePath(ctx, i.api, JoinPath(resolvedPath, dirit.Name()))
 		if err != nil {
 			internalWebError(w, err)
 			return
@@ -173,7 +174,7 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 		gwURL = ""
 	}
 
-	dnslink := hasDNSLinkOrigin(gwURL, contentPath.String())
+	//dnslink := hasDNSLinkOrigin(gwURL, contentPath.String())
 
 	// See comment above where originalUrlPath is declared.
 	tplData := listingTemplateData{
@@ -187,7 +188,7 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 		Hash:        hash,
 	}
 
-	logger.Debugw("request processed", "tplDataDNSLink", dnslink, "tplDataSize", size, "tplDataBackLink", backLink, "tplDataHash", hash)
+	logger.Debugw("request processed", "tplDataSize", size, "tplDataBackLink", backLink, "tplDataHash", hash)
 
 	if err := listingTemplate.Execute(w, tplData); err != nil {
 		internalWebError(w, err)
@@ -199,5 +200,5 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 }
 
 func getDirListingEtag(dirCid cid.Cid) string {
-	return `"DirIndex-` + assets.AssetHash + `_CID-` + dirCid.String() + `"`
+	return `"DirIndex-unknown_CID-` + dirCid.String() + `"`
 }

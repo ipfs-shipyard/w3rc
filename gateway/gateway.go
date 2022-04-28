@@ -1,12 +1,10 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"sort"
-	"time"
 
 	id "github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	ma "github.com/multiformats/go-multiaddr"
@@ -126,56 +124,44 @@ func makeHandler(a API, gc *GatewayConfig, l net.Listener, options ...ServeOptio
 // TODO intelligently parse address strings in other formats so long as they
 // unambiguously map to a valid multiaddr. e.g. for convenience, ":8080" should
 // map to "/ip4/0.0.0.0/tcp/8080".
-func ListenAndServe(a API, gc *GatewayConfig, listeningMultiAddr string, options ...ServeOption) error {
+func ListenAndServe(a API, gc *GatewayConfig, listeningMultiAddr string, options ...ServeOption) (*http.Server, error) {
 	addr, err := ma.NewMultiaddr(listeningMultiAddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	list, err := manet.Listen(addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// we might have listened to /tcp/0 - let's see what we are listing on
 	addr = list.Multiaddr()
 	fmt.Printf("API server listening on %s\n", addr)
 
-	return Serve(a, gc, manet.NetListener(list), options...)
+	return Serve(a, gc, manet.NetListener(list), options...), nil
 }
 
 // Serve accepts incoming HTTP connections on the listener and pass them
 // to ServeOption handlers.
-func Serve(a API, gc *GatewayConfig, lis net.Listener, options ...ServeOption) error {
+func Serve(a API, gc *GatewayConfig, lis net.Listener, options ...ServeOption) *http.Server {
 	// make sure we close this no matter what.
 	defer lis.Close()
 
 	handler, err := makeHandler(a, gc, lis, options...)
 	if err != nil {
-		return err
-	}
-
-	addr, err := manet.FromNetAddr(lis.Addr())
-	if err != nil {
-		return err
+		return nil
 	}
 
 	server := &http.Server{
+		Addr:    lis.Addr().String(),
 		Handler: handler,
 	}
 
-	var serverError error
-
 	go func() {
-		serverError = server.Serve(lis)
+		//todo: pipe out error.
+		server.Serve(lis)
 	}()
 
-	// This timeout shouldn't be necessary if all of our commands
-	// are obeying their contexts but we should have *some* timeout.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	serverError = server.Shutdown(ctx)
-
-	log.Infof("server at %s terminated", addr)
-	return serverError
+	return server
 }

@@ -6,10 +6,12 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	gopath "path"
 	"strings"
 	"time"
 
 	files "github.com/ipfs/go-ipfs-files"
+	"github.com/ipld/go-ipld-prime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -17,7 +19,7 @@ import (
 
 // serveFile returns data behind a file along with HTTP headers based on
 // the file itself, its CID and the contentPath used for accessing it.
-func (i *gatewayHandler) serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, resolvedPath Resolved, contentPath Path, file files.File, begin time.Time) {
+func (i *gatewayHandler) serveFile(ctx context.Context, w http.ResponseWriter, r *http.Request, resolvedPath Resolved, contentPath Path, file ipld.Node, begin time.Time) {
 	_, span := otel.Tracer("gateway").Start(ctx, "gateway.serveFile", trace.WithAttributes(attribute.String("path", resolvedPath.String())))
 	defer span.End()
 

@@ -1,10 +1,20 @@
 package gateway
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
+	fetchimpl "github.com/ipfs-shipyard/w3rc/fetcher"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-fetcher"
 	ipfspath "github.com/ipfs/go-path"
+	resolver "github.com/ipfs/go-path/resolver"
+	"github.com/ipfs/go-unixfsnode"
+	dagpb "github.com/ipld/go-codec-dagpb"
+	"github.com/ipld/go-ipld-prime"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
+	"github.com/ipld/go-ipld-prime/schema"
 )
 
 // from interface-go-ipfs-core/path
@@ -198,4 +208,67 @@ func (p *resolvedPath) Root() cid.Cid {
 
 func (p *resolvedPath) Remainder() string {
 	return p.remainder
+}
+
+type factory struct {
+	a    API
+	mode string
+}
+
+func (f *factory) NewSession(ctx context.Context) fetcher.Fetcher {
+	ff := fetchimpl.NewFetcherConfig()
+	ff.LinkSystem = f.a.NewSession(ctx)
+	ff.PrototypeChooser = dagpb.AddSupportToChooser(func(lnk ipld.Link, lnkCtx ipld.LinkContext) (ipld.NodePrototype, error) {
+		if tlnkNd, ok := lnkCtx.LinkNode.(schema.TypedLinkNode); ok {
+			return tlnkNd.LinkTargetNodePrototype(), nil
+		}
+		return basicnode.Prototype.Any, nil
+	})
+	if f.mode == "unixfs" {
+		ff.NodeReifier = unixfsnode.Reify
+	}
+	return ff.NewSession(ctx)
+}
+
+func ResolvePath(ctx context.Context, a API, p Path) (Resolved, error) {
+	if _, ok := p.(Resolved); ok {
+		return p.(Resolved), nil
+	}
+	if err := p.IsValid(); err != nil {
+		return nil, err
+	}
+
+	ipath := ipfspath.Path(p.String())
+	/* //todo: ipns
+	ipath, err := resolve.ResolveIPNS(ctx, api.namesys, ipath)
+	if err == resolve.ErrNoNamesys {
+		return nil, coreiface.ErrOffline
+	} else if err != nil {
+		return nil, err
+	}
+	*/
+
+	if ipath.Segments()[0] != "ipfs" && ipath.Segments()[0] != "ipld" {
+		return nil, fmt.Errorf("unsupported path namespace: %s", p.Namespace())
+	}
+
+	dataFetcher := &factory{a, ""}
+	if ipath.Segments()[0] == "ipld" {
+		dataFetcher.mode = "ipld"
+	} else {
+		dataFetcher.mode = "unixfs"
+	}
+	resolver := resolver.NewBasicResolver(dataFetcher)
+
+	node, rest, err := resolver.ResolveToLastNode(ctx, ipath)
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := cid.Parse(ipath.Segments()[1])
+	if err != nil {
+		return nil, err
+	}
+
+	return NewResolvedPath(ipath, node, root, ipfspath.Join(rest)), nil
 }

@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ipfs/go-fetcher"
 	gocar "github.com/ipld/go-car/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/ipld/go-ipld-prime/storage/memstore"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -60,24 +61,16 @@ func (i *gatewayHandler) serveCAR(ctx context.Context, w http.ResponseWriter, r 
 	w.Header().Set("X-Content-Type-Options", "nosniff") // no funny business in the browsers :^)
 
 	// Same go-car settings as dag.export command
-	store := memstore.Store{Bag: make(map[string][]byte)}
-	ls := cidlink.DefaultLinkSystem()
-	ls.SetReadStorage(&store)
-	ls.SetWriteStorage(&store)
-	session, err := i.api.NewSession(ls)
-	if err != nil {
-		webError(w, "ipfs car get "+rootCid.String(), err, http.StatusInternalServerError)
-		return
-	}
-
+	ls := i.api.NewSession(ctx)
+	f := i.api.FetcherForSession(ls)
+	rootLink := cidlink.Link{Cid: rootCid}
 	// TODO: support selectors passed as request param: https://github.com/ipfs/go-ipfs/issues/8769
-	_, err = session.Get(ctx, rootCid, selectorparse.CommonSelector_ExploreAllRecursively)
-	if err != nil {
+	if err := f.NodeMatching(ctx, basicnode.NewLink(rootLink), selectorparse.CommonSelector_ExploreAllRecursively, func(result fetcher.FetchResult) error { return nil }); err != nil {
 		webError(w, "ipfs car get "+rootCid.String(), err, http.StatusInternalServerError)
 		return
 	}
 
-	if _, err := gocar.TraverseV1(ctx, &ls, rootCid, selectorparse.CommonSelector_ExploreAllRecursively, w); err != nil {
+	if _, err := gocar.TraverseV1(ctx, ls, rootCid, selectorparse.CommonSelector_ExploreAllRecursively, w); err != nil {
 		w.Header().Set("X-Stream-Error", err.Error())
 		return
 	}

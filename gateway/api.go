@@ -8,8 +8,6 @@ import (
 )
 
 type API interface {
-	ResolvePath(context.Context, Path) (Path, error)
-
 	FetcherForSession(*ipld.LinkSystem) fetcher.Fetcher
 	NewSession(context.Context) *ipld.LinkSystem
 }

@@ -2,12 +2,15 @@ package gateway
 
 import (
 	"context"
-	"fmt"
 	"html"
 	"net/http"
 	"time"
 
-	files "github.com/ipfs/go-ipfs-files"
+	"github.com/ipfs/go-fetcher"
+	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -18,26 +21,22 @@ func (i *gatewayHandler) serveUnixFS(ctx context.Context, w http.ResponseWriter,
 	ctx, span := otel.Tracer("gateway").Start(ctx, "gateway.serveUnixFS", trace.WithAttributes(attribute.String("path", resolvedPath.String())))
 	defer span.End()
 	// Handling UnixFS
-	dr, err := i.api.Unixfs().Get(ctx, resolvedPath)
+	ls := i.api.NewSession(ctx)
+	fetchSession := i.api.FetcherForSession(ls)
+	err := fetchSession.NodeMatching(ctx, basicnode.NewLink(cidlink.Link{Cid: resolvedPath.Cid()}), selectorparse.CommonSelector_MatchPoint, func(_ fetcher.FetchResult) error { return nil })
+	node, err := ls.Load(ipld.LinkContext{Ctx: ctx}, cidlink.Link{Cid: resolvedPath.Cid()}, basicnode.Prototype.Any)
 	if err != nil {
 		webError(w, "ipfs cat "+html.EscapeString(contentPath.String()), err, http.StatusNotFound)
-		return
 	}
-	defer dr.Close()
 
 	// Handling Unixfs file
-	if f, ok := dr.(files.File); ok {
+	if node.Kind() == ipld.Kind_Bytes {
 		logger.Debugw("serving unixfs file", "path", contentPath)
-		i.serveFile(ctx, w, r, resolvedPath, contentPath, f, begin)
+		i.serveFile(ctx, w, r, resolvedPath, contentPath, node, begin)
 		return
 	}
 
 	// Handling Unixfs directory
-	dir, ok := dr.(files.Directory)
-	if !ok {
-		internalWebError(w, fmt.Errorf("unsupported UnixFS type"))
-		return
-	}
 	logger.Debugw("serving unixfs directory", "path", contentPath)
-	i.serveDirectory(ctx, w, r, resolvedPath, contentPath, dir, begin, logger)
+	i.serveDirectory(ctx, w, r, resolvedPath, contentPath, node, begin, logger)
 }

@@ -22,7 +22,9 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipfs/go-merkledag v0.6.0 // indirect
 	github.com/ipfs/go-path v0.2.1
+	github.com/ipfs/go-unixfsnode v1.4.0
 	github.com/ipld/go-car/v2 v2.1.2-0.20220418083702-1105228f1ce4
+	github.com/ipld/go-codec-dagpb v1.3.1
 	github.com/ipld/go-ipld-prime v0.16.0
 	github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20220407010427-9d19e3c2c023
 	github.com/libp2p/go-conn-security-multistream v0.3.0

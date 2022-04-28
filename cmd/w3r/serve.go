@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/ipfs-shipyard/w3rc"
+	"github.com/ipfs-shipyard/w3rc/api"
+	"github.com/ipfs-shipyard/w3rc/gateway"
 	"github.com/ipfs/go-log/v2"
 	"github.com/urfave/cli/v2"
 )
@@ -33,25 +34,26 @@ func Serve(c *cli.Context) error {
 		syscall.SIGQUIT, // kill -SIGQUIT XXXX
 	)
 
+	w3rcAPI := api.NewAPI(10_000_000, opts...)
+
 	listener, err := net.Listen("tcp", c.String("listen"))
 	if err != nil {
 		return err
 	}
-	server := http.Server{
-		Addr: listener.Addr().String(),
+
+	gatewayConf := gateway.GatewayConfig{
+		NoDNSLink: true,
 	}
-	mux := http.ServeMux{}
-	mux.HandleFunc("/", serve)
-	server.Handler = &mux
-	go server.Serve(listener)
+
+	server := gateway.Serve(w3rcAPI, &gatewayConf, listener,
+		gateway.HostnameOption(),
+		gateway.LogOption(),
+		gateway.MetricsOpenCensusCollectionOption(),
+		gateway.VersionOption(),
+	)
 
 	<-signalChan
-	cctx, cancel := context.WithTimeout(c.Context, 5*time.Second)
+	cctx, cancel := context.WithTimeout(c.Context, 30*time.Second)
 	defer cancel()
 	return server.Shutdown(cctx)
-}
-
-func serve(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello, World!"))
-	return
 }
