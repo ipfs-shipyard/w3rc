@@ -3,6 +3,9 @@ module github.com/ipfs-shipyard/w3rc
 go 1.16
 
 require (
+	contrib.go.opencensus.io/exporter/prometheus v0.4.0
+	github.com/dgraph-io/ristretto v0.0.2
+	github.com/dustin/go-humanize v1.0.0
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-data-transfer v1.15.1
 	github.com/filecoin-project/go-fil-markets v1.20.3
@@ -10,13 +13,16 @@ require (
 	github.com/filecoin-project/index-provider v0.7.1-0.20220425134633-ec570e856604
 	github.com/filecoin-project/specs-actors v0.9.14
 	github.com/filecoin-project/storetheindex v0.4.10
-	github.com/ipfs/go-blockservice v0.3.0 // indirect
 	github.com/ipfs/go-cid v0.2.0
 	github.com/ipfs/go-datastore v0.5.1
+	github.com/ipfs/go-fetcher v1.6.1
 	github.com/ipfs/go-graphsync v0.13.1
+	github.com/ipfs/go-ipfs-files v0.0.9
+	github.com/ipfs/go-log v1.0.5
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipfs/go-merkledag v0.6.0 // indirect
-	github.com/ipld/go-car/v2 v2.1.2-0.20220425125602-e52deabd39a4
+	github.com/ipfs/go-path v0.2.1
+	github.com/ipld/go-car/v2 v2.1.2-0.20220418083702-1105228f1ce4
 	github.com/ipld/go-ipld-prime v0.16.0
 	github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20220407010427-9d19e3c2c023
 	github.com/libp2p/go-conn-security-multistream v0.3.0
@@ -33,10 +39,17 @@ require (
 	github.com/libp2p/go-stream-muxer-multistream v0.4.0
 	github.com/libp2p/go-tcp-transport v0.5.1
 	github.com/libp2p/go-ws-transport v0.6.0
+	github.com/miekg/dns v1.1.48
 	github.com/multiformats/go-multiaddr v0.5.0
+	github.com/multiformats/go-multibase v0.0.3
 	github.com/multiformats/go-multicodec v0.4.1
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/multiformats/go-varint v0.0.6
+	github.com/prometheus/client_golang v1.12.1
 	github.com/urfave/cli/v2 v2.4.8
 	github.com/willscott/go-selfish-bitswap-client v0.0.0-20220301113754-0683d205d750
+	go.opencensus.io v0.23.0
+	go.opentelemetry.io/otel v1.3.0
+	go.opentelemetry.io/otel/trace v1.3.0
+	go.uber.org/zap v1.21.0
 )
