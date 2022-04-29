@@ -5,7 +5,6 @@ go 1.16
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0
 	github.com/dgraph-io/ristretto v0.0.2
-	github.com/dustin/go-humanize v1.0.0
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-data-transfer v1.15.1
 	github.com/filecoin-project/go-fil-markets v1.20.3
@@ -18,10 +17,8 @@ require (
 	github.com/ipfs/go-datastore v0.5.1
 	github.com/ipfs/go-fetcher v1.6.1
 	github.com/ipfs/go-graphsync v0.13.1
-	github.com/ipfs/go-ipfs-files v0.0.9
 	github.com/ipfs/go-log v1.0.5
 	github.com/ipfs/go-log/v2 v2.5.1
-	github.com/ipfs/go-merkledag v0.6.0 // indirect
 	github.com/ipfs/go-path v0.2.1
 	github.com/ipfs/go-unixfsnode v1.4.0
 	github.com/ipld/go-car/v2 v2.1.2-0.20220429070120-51b5cbdd49db
@@ -32,10 +29,11 @@ require (
 	github.com/libp2p/go-libp2p v0.19.0
 	github.com/libp2p/go-libp2p-core v0.15.1
 	github.com/libp2p/go-libp2p-mplex v0.7.0
-	github.com/libp2p/go-libp2p-netutil v0.2.0
+	github.com/libp2p/go-libp2p-netutil v0.2.0 // indirect
 	github.com/libp2p/go-libp2p-noise v0.4.0
 	github.com/libp2p/go-libp2p-peerstore v0.6.0
 	github.com/libp2p/go-libp2p-swarm v0.10.2
+	github.com/libp2p/go-libp2p-testing v0.9.2
 	github.com/libp2p/go-libp2p-tls v0.4.1
 	github.com/libp2p/go-libp2p-transport-upgrader v0.7.1
 	github.com/libp2p/go-libp2p-yamux v0.9.1
