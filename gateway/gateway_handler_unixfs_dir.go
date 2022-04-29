@@ -7,12 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/ipfs/go-cid"
-	files "github.com/ipfs/go-ipfs-files"
+	"github.com/ipfs/go-fetcher"
 	gopath "github.com/ipfs/go-path"
-	resolver "github.com/ipfs/go-path/resolver"
 	"github.com/ipld/go-ipld-prime"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -39,10 +38,17 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 	originalUrlPath := requestURI.Path
 
 	// Check if directory has index.html, if so, serveFile
-	idxPath := JoinPath(resolvedPath, "index.html")
-	idx, err := i.api.Unixfs().Get(ctx, idxPath)
-	switch err.(type) {
-	case nil:
+	if idx, err := dir.LookupByString("index.html"); err == nil {
+		idxPath := JoinPath(resolvedPath, "index.html")
+		// make sure we've loaded the index.
+		ls := i.api.NewSession(ctx)
+		fetchSession := i.api.FetcherForSession(ls)
+		err := fetchSession.NodeMatching(ctx, idx, selectorparse.CommonSelector_ExploreAllRecursively, func(_ fetcher.FetchResult) error { return nil })
+		if err != nil {
+			internalWebError(w, err)
+			return
+		}
+
 		cpath := contentPath.String()
 		dirwithoutslash := cpath[len(cpath)-1] != '/'
 		goget := r.URL.Query().Get("go-get") == "1"
@@ -60,20 +66,9 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 			return
 		}
 
-		f, ok := idx.(files.File)
-		if !ok {
-			internalWebError(w, files.ErrNotReader)
-			return
-		}
-
 		logger.Debugw("serving index.html file", "path", idxPath)
 		// write to request
-		i.serveFile(ctx, w, r, resolvedPath, idxPath, f, begin)
-		return
-	case resolver.ErrNoLink:
-		logger.Debugw("no index.html; noop", "path", idxPath)
-	default:
-		internalWebError(w, err)
+		i.serveFile(ctx, w, r, resolvedPath, idxPath, idx, begin)
 		return
 	}
 
@@ -102,15 +97,22 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 
 	// storage for directory listing
 	var dirListing []directoryItem
-	dirit := dir.Entries()
-	for dirit.Next() {
+	dirit := dir.MapIterator()
+	for !dirit.Done() {
 		size := "?"
-		if s, err := dirit.Node().Size(); err == nil {
-			// Size may not be defined/supported. Continue anyways.
-			size = humanize.Bytes(uint64(s))
+		name, _, err := dirit.Next()
+		if err != nil {
+			internalWebError(w, err)
+			return
 		}
+		// TODO: size
+		//if s, err := dirit.Node().Size(); err == nil {
+		// Size may not be defined/supported. Continue anyways.
+		//	size = humanize.Bytes(uint64(s))
+		//}
+		nameStr, _ := name.AsString()
 
-		resolved, err := ResolvePath(ctx, i.api, JoinPath(resolvedPath, dirit.Name()))
+		resolved, err := ResolvePath(ctx, i.api, JoinPath(resolvedPath, nameStr))
 		if err != nil {
 			internalWebError(w, err)
 			return
@@ -120,16 +122,12 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 		// See comment above where originalUrlPath is declared.
 		di := directoryItem{
 			Size:      size,
-			Name:      dirit.Name(),
-			Path:      gopath.Join([]string{originalUrlPath, dirit.Name()}),
+			Name:      nameStr,
+			Path:      gopath.Join([]string{originalUrlPath, nameStr}),
 			Hash:      hash,
 			ShortHash: shortHash(hash),
 		}
 		dirListing = append(dirListing, di)
-	}
-	if dirit.Err() != nil {
-		internalWebError(w, dirit.Err())
-		return
 	}
 
 	// construct the correct back link
@@ -155,10 +153,10 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 	}
 
 	size := "?"
-	if s, err := dir.Size(); err == nil {
-		// Size may not be defined/supported. Continue anyways.
-		size = humanize.Bytes(uint64(s))
-	}
+	//if s, err := dir.Size(); err == nil {
+	// Size may not be defined/supported. Continue anyways.
+	//	size = humanize.Bytes(uint64(s))
+	//}
 
 	hash := resolvedPath.Cid().String()
 
@@ -179,11 +177,11 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 	// See comment above where originalUrlPath is declared.
 	tplData := listingTemplateData{
 		GatewayURL:  gwURL,
-		DNSLink:     dnslink,
+		DNSLink:     false,
 		Listing:     dirListing,
 		Size:        size,
 		Path:        contentPath.String(),
-		Breadcrumbs: breadcrumbs(contentPath.String(), dnslink),
+		Breadcrumbs: breadcrumbs(contentPath.String(), false),
 		BackLink:    backLink,
 		Hash:        hash,
 	}

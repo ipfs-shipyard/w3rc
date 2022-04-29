@@ -13,6 +13,7 @@ require (
 	github.com/filecoin-project/index-provider v0.7.1-0.20220425134633-ec570e856604
 	github.com/filecoin-project/specs-actors v0.9.14
 	github.com/filecoin-project/storetheindex v0.4.10
+	github.com/gabriel-vasile/mimetype v1.4.0
 	github.com/ipfs/go-cid v0.2.0
 	github.com/ipfs/go-datastore v0.5.1
 	github.com/ipfs/go-fetcher v1.6.1
@@ -23,7 +24,7 @@ require (
 	github.com/ipfs/go-merkledag v0.6.0 // indirect
 	github.com/ipfs/go-path v0.2.1
 	github.com/ipfs/go-unixfsnode v1.4.0
-	github.com/ipld/go-car/v2 v2.1.2-0.20220418083702-1105228f1ce4
+	github.com/ipld/go-car/v2 v2.1.2-0.20220429070120-51b5cbdd49db
 	github.com/ipld/go-codec-dagpb v1.3.1
 	github.com/ipld/go-ipld-prime v0.16.0
 	github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20220407010427-9d19e3c2c023

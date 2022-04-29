@@ -86,6 +86,7 @@ func NewFilecoinExchange(node PaymentAPI, h host.Host, dataTransfer datatransfer
 func finishWithError(tf *transfer, err error) {
 	tf.events <- exchange.EventData{Event: exchange.FailureEvent, State: err}
 	close(tf.events)
+	tf.events = nil
 }
 
 //lint:ignore U1000 implementation in progress

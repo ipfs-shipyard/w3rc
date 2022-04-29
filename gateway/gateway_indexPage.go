@@ -1,6 +1,10 @@
 package gateway
 
 import (
+	"embed"
+	"html/template"
+	"net/url"
+	gopath "path"
 	"strings"
 
 	ipfspath "github.com/ipfs/go-path"
@@ -75,4 +79,48 @@ func shortHash(hash string) string {
 		return hash
 	}
 	return (hash[0:4] + "\u2026" + hash[len(hash)-4:])
+}
+
+var listingTemplate *template.Template
+
+//go:embed assets/*
+var dirIndexHTML embed.FS
+
+func init() {
+	knownIconsBytes, err := dirIndexHTML.ReadFile("assets/knownIcons.txt")
+	if err != nil {
+		panic(err)
+	}
+	knownIcons := make(map[string]struct{})
+	for _, ext := range strings.Split(strings.TrimSuffix(string(knownIconsBytes), "\n"), "\n") {
+		knownIcons[ext] = struct{}{}
+	}
+
+	// helper to guess the type/icon for it by the extension name
+	iconFromExt := func(name string) string {
+		ext := gopath.Ext(name)
+		_, ok := knownIcons[ext]
+		if !ok {
+			// default blank icon
+			return "ipfs-_blank"
+		}
+		return "ipfs-" + ext[1:] // slice of the first dot
+	}
+
+	// custom template-escaping function to escape a full path, including '#' and '?'
+	urlEscape := func(rawUrl string) string {
+		pathUrl := url.URL{Path: rawUrl}
+		return pathUrl.String()
+	}
+
+	// Directory listing template
+	dirIndexBytes, err := dirIndexHTML.ReadFile("assets/dir-index.html")
+	if err != nil {
+		panic(err)
+	}
+
+	listingTemplate = template.Must(template.New("dir").Funcs(template.FuncMap{
+		"iconFromExt": iconFromExt,
+		"urlEscape":   urlEscape,
+	}).Parse(string(dirIndexBytes)))
 }

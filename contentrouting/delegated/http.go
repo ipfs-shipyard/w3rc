@@ -2,6 +2,7 @@ package delegated
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/filecoin-project/index-provider/metadata"
 	finderhttpclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
@@ -14,6 +15,7 @@ import (
 
 // NewDelegatedHTTP makes a routing provider backed by an HTTP endpoint.
 func NewDelegatedHTTP(url string) (contentrouting.Routing, error) {
+	fmt.Printf("url is: %s\n", url)
 	client, err := finderhttpclient.New(url)
 	if err != nil {
 		return nil, err

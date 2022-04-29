@@ -17,12 +17,15 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-	files "github.com/ipfs/go-ipfs-files"
+	"github.com/ipfs/go-fetcher"
 	logging "github.com/ipfs/go-log"
 	ipfspath "github.com/ipfs/go-path"
 	resolver "github.com/ipfs/go-path/resolver"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -422,27 +425,45 @@ func (i *gatewayHandler) servePretty404IfPresent(w http.ResponseWriter, r *http.
 		return false
 	}
 
-	dr, err := i.api.Unixfs().Get(r.Context(), resolved404Path)
+	ls := i.api.NewSession(r.Context())
+	f := i.api.FetcherForSession(ls)
+	sel := selectorparse.CommonSelector_ExploreAllRecursively
+	if err := f.NodeMatching(r.Context(), basicnode.NewLink(cidlink.Link{Cid: resolved404Path.Cid()}), sel, func(result fetcher.FetchResult) error { return nil }); err != nil {
+		return false
+	}
+	file, err := ls.Load(ipld.LinkContext{Ctx: r.Context()}, cidlink.Link{Cid: resolved404Path.Cid()}, basicnode.Prototype.Any)
 	if err != nil {
 		return false
 	}
-	defer dr.Close()
 
-	f, ok := dr.(files.File)
-	if !ok {
-		return false
+	byteReader, ok := file.(datamodel.LargeBytesNode)
+	if ok {
+		rs, err := byteReader.AsLargeBytes()
+		if err == nil {
+			size, err := rs.Seek(0, io.SeekEnd)
+			if err == nil {
+				_, _ = rs.Seek(0, io.SeekStart)
+				log.Debugw("using pretty 404 file", "path", contentPath)
+				w.Header().Set("Content-Type", ctype)
+				w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+				w.WriteHeader(http.StatusNotFound)
+				_, err = io.CopyN(w, rs, size)
+				return err == nil
+			}
+		}
 	}
-
-	size, err := f.Size()
+	// fallback to non-large-bytes
+	bytes, err := file.AsBytes()
 	if err != nil {
 		return false
 	}
+	size := len(bytes)
 
 	log.Debugw("using pretty 404 file", "path", contentPath)
 	w.Header().Set("Content-Type", ctype)
-	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(size), 10))
 	w.WriteHeader(http.StatusNotFound)
-	_, err = io.CopyN(w, f, size)
+	_, err = w.Write(bytes)
 	return err == nil
 }
 

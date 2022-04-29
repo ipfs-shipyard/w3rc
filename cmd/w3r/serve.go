@@ -40,6 +40,7 @@ func Serve(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	defer listener.Close()
 
 	gatewayConf := gateway.GatewayConfig{
 		NoDNSLink: true,
@@ -48,8 +49,11 @@ func Serve(c *cli.Context) error {
 	server := gateway.Serve(w3rcAPI, &gatewayConf, listener,
 		gateway.HostnameOption(),
 		gateway.LogOption(),
+		gateway.MetricsCollectionOption("api"),
 		gateway.MetricsOpenCensusCollectionOption(),
 		gateway.VersionOption(),
+		gateway.WebUIOption,
+		gateway.GatewayOption("/ipfs"),
 	)
 
 	<-signalChan

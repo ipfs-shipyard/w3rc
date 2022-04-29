@@ -146,7 +146,7 @@ func ListenAndServe(a API, gc *GatewayConfig, listeningMultiAddr string, options
 // to ServeOption handlers.
 func Serve(a API, gc *GatewayConfig, lis net.Listener, options ...ServeOption) *http.Server {
 	// make sure we close this no matter what.
-	defer lis.Close()
+	//defer lis.Close()
 
 	handler, err := makeHandler(a, gc, lis, options...)
 	if err != nil {
@@ -160,7 +160,10 @@ func Serve(a API, gc *GatewayConfig, lis net.Listener, options ...ServeOption) *
 
 	go func() {
 		//todo: pipe out error.
-		server.Serve(lis)
+		err := server.Serve(lis)
+		if err != nil {
+			log.Warnf("Serving exited: %s", err)
+		}
 	}()
 
 	return server

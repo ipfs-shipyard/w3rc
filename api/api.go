@@ -9,7 +9,9 @@ import (
 	"github.com/ipfs-shipyard/w3rc/gateway"
 	"github.com/ipfs-shipyard/w3rc/store"
 	"github.com/ipfs/go-fetcher"
+	"github.com/ipfs/go-unixfsnode"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage"
 )
@@ -56,6 +58,8 @@ func (a *api) FetcherForSession(ls *ipld.LinkSystem) fetcher.Fetcher {
 func (a *api) NewSession(ctx context.Context) *ipld.LinkSystem {
 	ls := cidlink.DefaultLinkSystem()
 	derivedReadStore, derivedWriteStore := store.NewWriteThroughStore(a.baseReader, a.baseWriter)
+	ls.KnownReifiers = make(map[string]linking.NodeReifier)
+	ls.KnownReifiers["unixfs"] = unixfsnode.Reify
 	ls.SetReadStorage(derivedReadStore)
 	ls.SetWriteStorage(derivedWriteStore)
 	a.sessionLk.Lock()

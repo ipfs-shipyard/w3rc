@@ -7,10 +7,14 @@ import (
 	"time"
 
 	"github.com/ipfs/go-fetcher"
+	"github.com/ipfs/go-unixfsnode"
+	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
-	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -23,20 +27,31 @@ func (i *gatewayHandler) serveUnixFS(ctx context.Context, w http.ResponseWriter,
 	// Handling UnixFS
 	ls := i.api.NewSession(ctx)
 	fetchSession := i.api.FetcherForSession(ls)
-	err := fetchSession.NodeMatching(ctx, basicnode.NewLink(cidlink.Link{Cid: resolvedPath.Cid()}), selectorparse.CommonSelector_MatchPoint, func(_ fetcher.FetchResult) error { return nil })
-	node, err := ls.Load(ipld.LinkContext{Ctx: ctx}, cidlink.Link{Cid: resolvedPath.Cid()}, basicnode.Prototype.Any)
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
+	selSpec := ssb.ExploreInterpretAs("unixfs", ssb.ExploreRecursive(selector.RecursionLimitDepth(1), ssb.ExploreAll(ssb.ExploreRecursiveEdge())))
+	sel := selSpec.Node()
+	err := fetchSession.NodeMatching(ctx, basicnode.NewLink(cidlink.Link{Cid: resolvedPath.Cid()}), sel, func(_ fetcher.FetchResult) error { return nil })
+	if err != nil {
+		webError(w, "ipfs cat "+html.EscapeString(contentPath.String()), err, http.StatusNotFound)
+	}
+	node, err := ls.Load(ipld.LinkContext{Ctx: ctx}, cidlink.Link{Cid: resolvedPath.Cid()}, dagpb.Type.PBNode)
+	if err != nil {
+		webError(w, "ipfs cat "+html.EscapeString(contentPath.String()), err, http.StatusNotFound)
+	}
+	unode, err := unixfsnode.Reify(linking.LinkContext{Ctx: ctx}, node, ls)
 	if err != nil {
 		webError(w, "ipfs cat "+html.EscapeString(contentPath.String()), err, http.StatusNotFound)
 	}
 
 	// Handling Unixfs file
-	if node.Kind() == ipld.Kind_Bytes {
+	if unode.Kind() == ipld.Kind_Bytes {
 		logger.Debugw("serving unixfs file", "path", contentPath)
-		i.serveFile(ctx, w, r, resolvedPath, contentPath, node, begin)
+		i.serveFile(ctx, w, r, resolvedPath, contentPath, unode, begin)
 		return
 	}
 
 	// Handling Unixfs directory
+	logger.Debugf("resolved node is of type: %v", unode)
 	logger.Debugw("serving unixfs directory", "path", contentPath)
-	i.serveDirectory(ctx, w, r, resolvedPath, contentPath, node, begin, logger)
+	i.serveDirectory(ctx, w, r, resolvedPath, contentPath, unode, begin, logger)
 }
