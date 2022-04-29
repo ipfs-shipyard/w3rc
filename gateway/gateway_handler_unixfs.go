@@ -8,7 +8,6 @@ import (
 
 	"github.com/ipfs/go-fetcher"
 	"github.com/ipfs/go-unixfsnode"
-	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -34,7 +33,9 @@ func (i *gatewayHandler) serveUnixFS(ctx context.Context, w http.ResponseWriter,
 	if err != nil {
 		webError(w, "ipfs cat "+html.EscapeString(contentPath.String()), err, http.StatusNotFound)
 	}
-	node, err := ls.Load(ipld.LinkContext{Ctx: ctx}, cidlink.Link{Cid: resolvedPath.Cid()}, dagpb.Type.PBNode)
+	f := i.api.FetcherForSession(ls)
+	proto, _ := f.PrototypeFromLink(cidlink.Link{Cid: resolvedPath.Cid()})
+	node, err := ls.Load(ipld.LinkContext{Ctx: ctx}, cidlink.Link{Cid: resolvedPath.Cid()}, proto)
 	if err != nil {
 		webError(w, "ipfs cat "+html.EscapeString(contentPath.String()), err, http.StatusNotFound)
 	}

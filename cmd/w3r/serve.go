@@ -44,6 +44,10 @@ func Serve(c *cli.Context) error {
 
 	gatewayConf := gateway.GatewayConfig{
 		NoDNSLink: true,
+		PublicGateways: map[string]*gateway.GatewaySpec{"ipfs.localhost": &gateway.GatewaySpec{
+			UseSubdomains: true,
+			NoDNSLink:     true,
+		}},
 	}
 
 	server := gateway.Serve(w3rcAPI, &gatewayConf, listener,
