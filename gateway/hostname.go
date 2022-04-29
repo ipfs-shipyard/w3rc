@@ -177,6 +177,10 @@ type wildcardHost struct {
 	spec *GatewaySpec
 }
 
+type HostnameKey string
+
+var GatewayHostnameKey HostnameKey = "gw-hostname"
+
 // Extends request context to include hostname of a canonical gateway root
 // (subdomain root or dnslink fqdn)
 func withHostnameContext(r *http.Request, hostname string) *http.Request {
@@ -184,7 +188,7 @@ func withHostnameContext(r *http.Request, hostname string) *http.Request {
 	// on subdomain and dnslink gateways. While DNSlink could read value from
 	// Host header, subdomain gateways have more comples rules (knownSubdomainDetails)
 	// More: https://github.com/ipfs/dir-index-html/issues/42
-	ctx := context.WithValue(r.Context(), "gw-hostname", hostname)
+	ctx := context.WithValue(r.Context(), GatewayHostnameKey, hostname)
 	return r.WithContext(ctx)
 }
 
@@ -348,6 +352,7 @@ func isHTTPSRequest(r *http.Request) bool {
 
 // Converts a FQDN to DNS-safe representation that fits in 63 characters:
 // my.v-long.example.com → my-v--long-example-com
+/*
 func toDNSLinkDNSLabel(fqdn string) (dnsLabel string, err error) {
 	dnsLabel = strings.ReplaceAll(fqdn, "-", "--")
 	dnsLabel = strings.ReplaceAll(dnsLabel, ".", "-")
@@ -365,6 +370,7 @@ func toDNSLinkFQDN(dnsLabel string) (fqdn string) {
 	fqdn = strings.ReplaceAll(fqdn, "@", "-")
 	return fqdn
 }
+*/
 
 // Converts a hostname/path to a subdomain-based URL, if applicable.
 func toSubdomainURL(hostname, path string, r *http.Request) (redirURL string, err error) {
@@ -455,36 +461,37 @@ func toSubdomainURL(hostname, path string, r *http.Request) (redirURL string, er
 		if err != nil {
 			return "", err
 		}
-	} else { // rootID is not a CID
-
-		// Check if rootID is a FQDN with DNSLink and convert it to TLS-safe
-		// representation that fits in a single DNS label.  We support this so
-		// loading DNSLink names over TLS "just works" on public HTTP gateways
-		// that pass 'https' in X-Forwarded-Proto to go-ipfs.
-		//
-		// Rationale can be found under "Option C"
-		// at: https://github.com/ipfs/in-web-browsers/issues/169
-		//
-		// TLDR is:
-		// /ipns/my.v-long.example.com
-		// can be loaded from a subdomain gateway with a wildcard TLS cert if
-		// represented as a single DNS label:
-		// https://my-v--long-example-com.ipns.dweb.link
-		// TODO: needs core API.
-		/*
-			if isHTTPS && ns == "ipns" && strings.Contains(rootID, ".") {
-				if isDNSLinkName(r.Context(), ipfs, rootID) {
-					// my.v-long.example.com → my-v--long-example-com
-					dnsLabel, err := toDNSLinkDNSLabel(rootID)
-					if err != nil {
-						return "", err
-					}
-					// update path prefix to use real FQDN with DNSLink
-					rootID = dnsLabel
-				}
-			}
-		*/
 	}
+	/*
+		else { // rootID is not a CID
+
+			// Check if rootID is a FQDN with DNSLink and convert it to TLS-safe
+			// representation that fits in a single DNS label.  We support this so
+			// loading DNSLink names over TLS "just works" on public HTTP gateways
+			// that pass 'https' in X-Forwarded-Proto to go-ipfs.
+			//
+			// Rationale can be found under "Option C"
+			// at: https://github.com/ipfs/in-web-browsers/issues/169
+			//
+			// TLDR is:
+			// /ipns/my.v-long.example.com
+			// can be loaded from a subdomain gateway with a wildcard TLS cert if
+			// represented as a single DNS label:
+			// https://my-v--long-example-com.ipns.dweb.link
+			// TODO: needs core API.
+				if isHTTPS && ns == "ipns" && strings.Contains(rootID, ".") {
+					if isDNSLinkName(r.Context(), ipfs, rootID) {
+						// my.v-long.example.com → my-v--long-example-com
+						dnsLabel, err := toDNSLinkDNSLabel(rootID)
+						if err != nil {
+							return "", err
+						}
+						// update path prefix to use real FQDN with DNSLink
+						rootID = dnsLabel
+					}
+				}
+		}
+	*/
 
 	return safeRedirectURL(fmt.Sprintf(
 		"%s//%s.%s.%s/%s%s",

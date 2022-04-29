@@ -166,7 +166,7 @@ func (i *gatewayHandler) serveDirectory(ctx context.Context, w http.ResponseWrit
 	var gwURL string
 
 	// Get gateway hostname and build gateway URL.
-	if h, ok := r.Context().Value("gw-hostname").(string); ok {
+	if h, ok := r.Context().Value(GatewayHostnameKey).(string); ok {
 		gwURL = "//" + h
 	} else {
 		gwURL = ""

@@ -12,7 +12,7 @@ import (
 	mockdelegatedrouter "github.com/ipfs-shipyard/w3rc/contentrouting/delegated/mock"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
-	p2ptestutil "github.com/libp2p/go-libp2p-netutil"
+	p2ptestutil "github.com/libp2p/go-libp2p-testing/netutil"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"

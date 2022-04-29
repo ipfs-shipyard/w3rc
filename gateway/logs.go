@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"context"
 	"io"
 	"net"
 	"net/http"
@@ -50,7 +49,7 @@ func LogOption() ServeOption {
 			w.WriteHeader(200)
 			wnf, errs := newWriteErrNotifier(w)
 			lwriter.WriterGroup.AddWriter(wnf)
-			log.Event(context.Background(), "log API client connected") //nolint deprecated
+			log.Debugf("log API client connected")
 			<-errs
 		})
 		return mux, nil

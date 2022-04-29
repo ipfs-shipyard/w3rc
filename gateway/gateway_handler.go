@@ -19,7 +19,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-fetcher"
 	logging "github.com/ipfs/go-log"
-	ipfspath "github.com/ipfs/go-path"
 	resolver "github.com/ipfs/go-path/resolver"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
@@ -260,6 +259,7 @@ func newGatewayHandler(c *GatewayConfig, api API) *gatewayHandler {
 	return i
 }
 
+/*
 func parseIpfsPath(p string) (cid.Cid, string, error) {
 	rootPath, err := ipfspath.ParsePath(p)
 	if err != nil {
@@ -279,6 +279,7 @@ func parseIpfsPath(p string) (cid.Cid, string, error) {
 
 	return rootCid, ipfspath.Join(rsegs[2:]), nil
 }
+*/
 
 func (i *gatewayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// the hour is a hard fallback, we don't expect it to happen, but just in case
