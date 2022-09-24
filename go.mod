@@ -8,7 +8,6 @@ require (
 	github.com/filecoin-project/go-fil-markets v1.24.1-0.20220913081020-18c30cecbc58
 	github.com/filecoin-project/go-state-types v0.1.10
 	github.com/filecoin-project/index-provider v0.8.2
-	github.com/filecoin-project/indexer-reference-provider v0.0.0-20211101163859-e1ca27274192
 	github.com/filecoin-project/storetheindex v0.4.23
 	github.com/ipfs/go-cid v0.2.0
 	github.com/ipfs/go-datastore v0.5.1
