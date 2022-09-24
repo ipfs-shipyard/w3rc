@@ -16,7 +16,7 @@ var _ contentrouting.RoutingRecord = (*testRoutingRecord)(nil)
 type testRoutingRecord struct {
 	request  cid.Cid
 	protocol multicodec.Code
-	payload  interface{}
+	payload  []byte
 }
 
 func (t testRoutingRecord) Request() cid.Cid {
@@ -51,29 +51,29 @@ func TestFilecoinV1RecordInterpreter_Interpret(t *testing.T) {
 		"InvalidRoutingErrorRecordIsError": {
 			givenRecord: &testRoutingRecord{
 				protocol: contentrouting.RoutingErrorProtocol,
-				payload:  "not error",
+				payload:  []byte("not error"),
 			},
 			wantErr: "routing record payload not match expected type: error",
 		},
 		"InvalidPayloadIsError": {
 			givenRecord: &testRoutingRecord{
-				payload: 42,
+				payload: []byte{42},
 			},
-			wantErr: "filecoin v1 routing record payload does not match expected type: []byte",
+			wantErr: "unknwon transport id: ip6zone",
 		},
 		"NonDataTransferMulticodecIsError": {
 			givenRecord: &testRoutingRecord{
 				protocol: multicodec.DagCbor,
 				payload:  []byte("fish"),
 			},
-			wantErr: "protocol 0x71 is not a data transfer protocol",
+			wantErr: "unknwon transport id: Code(102)",
 		},
 		"NonFilecoinV1ExchangeFormatIsError": {
 			givenRecord: &testRoutingRecord{
 				protocol: multicodec.TransportGraphsyncFilecoinv1,
 				payload:  []byte("fish"),
 			},
-			wantErr: "protocol 0x3F2A00 does not use the FilecoinV1 exchange format",
+			wantErr: "unknwon transport id: Code(102)",
 		},
 		"PaidFilecoinV1ExchangeScoreIsZeroForPreferFreePolicy": {
 			givenRecord: generateFilecoinV1RoutingRecord(t, &metadata.GraphsyncFilecoinV1{
@@ -107,7 +107,7 @@ func TestFilecoinV1RecordInterpreter_Interpret(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("Interpret() failed to get policy results: %v", err)
+				t.Fatalf("Interpret(%+v) failed to get policy results: %v", tt.givenRecord, err)
 			}
 			if got == nil {
 				t.Fatal("Interpret() policy results must not be nil")
@@ -123,8 +123,7 @@ func TestFilecoinV1RecordInterpreter_Interpret(t *testing.T) {
 }
 
 func generateFilecoinV1RoutingRecord(t *testing.T, fv1d *metadata.GraphsyncFilecoinV1) contentrouting.RoutingRecord {
-	md := metadata.New(fv1d)
-	mbd, err := md.MarshalBinary()
+	mbd, err := fv1d.MarshalBinary()
 	if err != nil {
 		t.Fatalf("failed to encode FilecoinV1 data transfer metadata: %v", err)
 	}
