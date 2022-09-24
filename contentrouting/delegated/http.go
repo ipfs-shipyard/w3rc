@@ -2,16 +2,19 @@ package delegated
 
 import (
 	"context"
+	"fmt"
 
+	metadata "github.com/filecoin-project/index-provider/metadata"
 	finderhttpclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
-	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	cid "github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multicodec"
 )
 
 // NewDelegatedHTTP makes a routing provider backed by an HTTP endpoint.
 func NewDelegatedHTTP(url string) (contentrouting.Routing, error) {
+	fmt.Printf("delegated to %s\n", url)
 	client, err := finderhttpclient.New(url)
 	if err != nil {
 		return nil, err
@@ -45,7 +48,14 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 				continue
 			}
 			for _, val := range multihashResult.ProviderResults {
-				ch <- &httpRecord{Cid: c, Val: val}
+				var md metadata.Metadata
+				if err := md.UnmarshalBinary(val.Metadata); err != nil {
+					ch <- &httpRecord{Cid: c, Prov: val.Provider, Proto: multicodec.Identity, Value: val.Metadata}
+					continue
+				}
+				for _, p := range md.Protocols() {
+					ch <- &httpRecord{Cid: c, Prov: val.Provider, Proto: p, Value: md.Get(p)}
+				}
 			}
 		}
 	}()
@@ -54,8 +64,10 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 }
 
 type httpRecord struct {
-	Cid cid.Cid
-	Val model.ProviderResult
+	Cid   cid.Cid
+	Prov  peer.AddrInfo
+	Proto multicodec.Code
+	Value interface{}
 }
 
 // Request is the Cid that triggered this routing error
@@ -65,15 +77,15 @@ func (r *httpRecord) Request() cid.Cid {
 
 // Protocol indicates that this record is an error
 func (r *httpRecord) Protocol() multicodec.Code {
-	return r.Val.Metadata.ProtocolID
+	return r.Proto
 }
 
 // Payload is the underlying error
 func (r *httpRecord) Payload() interface{} {
-	return r.Val.Metadata.Data
+	return r.Value
 }
 
 // Payload is the underlying error
 func (r *httpRecord) Provider() interface{} {
-	return r.Val.Provider
+	return r.Prov
 }
