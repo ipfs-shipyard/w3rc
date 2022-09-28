@@ -24,6 +24,7 @@ require (
 	github.com/multiformats/go-multihash v0.2.0
 	github.com/multiformats/go-varint v0.0.6
 	github.com/urfave/cli/v2 v2.8.1
+	github.com/willscott/go-selfish-bitswap-client v0.0.0-20220301113754-0683d205d750
 )
 
 require (
