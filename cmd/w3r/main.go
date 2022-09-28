@@ -33,6 +33,7 @@ func main1() int {
 					&cli.StringFlag{
 						Name:  "indexer",
 						Usage: "query a specific indexer endpoint",
+						Value: "https://cid.contact/",
 					},
 					&cli.BoolFlag{
 						Name:    "verbose",

@@ -53,9 +53,7 @@ func Get(c *cli.Context) error {
 	}
 
 	opts := []w3rc.Option{}
-	if c.IsSet("indexer") {
-		opts = append(opts, w3rc.WithIndexer(c.String("indexer")))
-	}
+	opts = append(opts, w3rc.WithIndexer(c.String("indexer")))
 	w3s, err := w3rc.NewSession(ls, opts...)
 	if err != nil {
 		return err

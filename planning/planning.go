@@ -6,10 +6,10 @@ package planning
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
-	"github.com/filecoin-project/indexer-reference-provider/metadata"
-	v0 "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -113,24 +113,17 @@ func (fri FilecoinV1RecordInterpreter) Interpret(record contentrouting.RoutingRe
 	if !ok {
 		return nil, errors.New("filecoin v1 routing record payload does not match expected type: []byte")
 	}
-	rm := v0.Metadata{
-		ProtocolID: record.Protocol(),
-		Data:       data,
-	}
 
-	dtm, err := metadata.FromIndexerMetadata(rm)
-	if err != nil {
+	var rm metadata.Metadata
+	if err := rm.UnmarshalBinary(data); err != nil {
 		return nil, err
 	}
 
-	fv1d, err := metadata.DecodeFilecoinV1Data(dtm)
-	if err != nil {
-		return nil, err
+	if md := rm.Get(multicodec.TransportGraphsyncFilecoinv1); md != nil {
+		fcmd := md.(*metadata.GraphsyncFilecoinV1)
+		return &simplePolicyResults{isFree: fcmd.VerifiedDeal && fcmd.FastRetrieval}, nil
 	}
-
-	// TODO: How should policies argument impact the returned results?
-
-	return &simplePolicyResults{isFree: fv1d.IsFree}, nil
+	return nil, fmt.Errorf("not graphsync retrievable")
 }
 
 var _ PolicyResults = (*simplePolicyResults)(nil)
