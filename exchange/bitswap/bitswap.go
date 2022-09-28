@@ -120,5 +120,4 @@ func (be *BitswapExchange) Close() {
 	for _, s := range be.sessions {
 		_ = s.Close()
 	}
-	return
 }
