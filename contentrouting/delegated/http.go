@@ -48,7 +48,7 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 				continue
 			}
 			for _, val := range multihashResult.ProviderResults {
-				var md metadata.Metadata
+				md := metadata.Default.New()
 				if err := md.UnmarshalBinary(val.Metadata); err != nil {
 					ch <- &httpRecord{Cid: c, Prov: val.Provider, Proto: multicodec.Identity, Value: val.Metadata}
 					continue
