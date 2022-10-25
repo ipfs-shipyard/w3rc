@@ -59,21 +59,21 @@ func TestFilecoinV1RecordInterpreter_Interpret(t *testing.T) {
 			givenRecord: &testRoutingRecord{
 				payload: []byte{42},
 			},
-			wantErr: "unknwon transport id: ip6zone",
+			wantErr: "unknown transport id: ip6zone",
 		},
 		"NonDataTransferMulticodecIsError": {
 			givenRecord: &testRoutingRecord{
 				protocol: multicodec.DagCbor,
 				payload:  []byte("fish"),
 			},
-			wantErr: "unknwon transport id: Code(102)",
+			wantErr: "unknown transport id: Code(102)",
 		},
 		"NonFilecoinV1ExchangeFormatIsError": {
 			givenRecord: &testRoutingRecord{
 				protocol: multicodec.TransportGraphsyncFilecoinv1,
 				payload:  []byte("fish"),
 			},
-			wantErr: "unknwon transport id: Code(102)",
+			wantErr: "unknown transport id: Code(102)",
 		},
 		"PaidFilecoinV1ExchangeScoreIsZeroForPreferFreePolicy": {
 			givenRecord: generateFilecoinV1RoutingRecord(t, &metadata.GraphsyncFilecoinV1{
