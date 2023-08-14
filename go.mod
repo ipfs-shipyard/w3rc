@@ -1,6 +1,6 @@
 module github.com/ipfs-shipyard/w3rc
 
-go 1.19
+go 1.20
 
 require (
 	github.com/filecoin-project/go-address v0.0.6
