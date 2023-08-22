@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	metadata "github.com/filecoin-project/index-provider/metadata"
-	finderhttpclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	cid "github.com/ipfs/go-cid"
+	finderhttpclient "github.com/ipni/go-libipni/find/client/http"
+	metadata "github.com/ipni/go-libipni/metadata"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 )

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	"github.com/ipfs/go-cid"
+	"github.com/ipni/go-libipni/metadata"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 )

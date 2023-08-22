@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipni/go-libipni/metadata"
 	"github.com/multiformats/go-multicodec"
 )
 
