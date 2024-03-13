@@ -2,7 +2,6 @@ module github.com/ipfs-shipyard/w3rc
 
 go 1.21
 
-
 require (
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-data-transfer v1.15.2
