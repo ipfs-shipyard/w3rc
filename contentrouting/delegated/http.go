@@ -8,7 +8,7 @@ import (
 	finderhttpclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/ipfs-shipyard/w3rc/contentrouting"
 	cid "github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 )
 
@@ -48,7 +48,7 @@ func (hr *HTTPRouter) FindProviders(ctx context.Context, c cid.Cid, _ ...content
 				continue
 			}
 			for _, val := range multihashResult.ProviderResults {
-				var md metadata.Metadata
+				md := metadata.Default.New()
 				if err := md.UnmarshalBinary(val.Metadata); err != nil {
 					ch <- &httpRecord{Cid: c, Prov: val.Provider, Proto: multicodec.Identity, Value: val.Metadata}
 					continue

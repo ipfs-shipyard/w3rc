@@ -2,11 +2,13 @@ package w3rc
 
 import (
 	"context"
+	nh "net/http"
 
 	"github.com/ipfs-shipyard/w3rc/contentrouting/delegated"
 	"github.com/ipfs-shipyard/w3rc/exchange"
 	"github.com/ipfs-shipyard/w3rc/exchange/bitswap"
 	"github.com/ipfs-shipyard/w3rc/exchange/filecoinretrieval"
+	"github.com/ipfs-shipyard/w3rc/exchange/http"
 	"github.com/ipfs-shipyard/w3rc/planning"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -41,7 +43,8 @@ func NewSession(ls ipld.LinkSystem, opts ...Option) (Session, error) {
 
 	dt := conf.dt
 	session.mux.Register(filecoinretrieval.NewFilecoinExchange(nil, conf.host, dt))
-	session.mux.Register(bitswap.NewBitswaExchange(conf.host, &ls))
+	session.mux.Register(bitswap.NewBitswapExchange(conf.host, &ls))
+	session.mux.Register(http.NewHTTPExchange(nh.DefaultClient, &ls))
 
 	return &session, nil
 }
