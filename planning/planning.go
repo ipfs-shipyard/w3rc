@@ -114,7 +114,7 @@ func (fri FilecoinV1RecordInterpreter) Interpret(record contentrouting.RoutingRe
 		return nil, errors.New("filecoin v1 routing record payload does not match expected type: []byte")
 	}
 
-	var rm metadata.Metadata
+	rm := metadata.Default.New()
 	if err := rm.UnmarshalBinary(data); err != nil {
 		return nil, err
 	}

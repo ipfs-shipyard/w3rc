@@ -13,7 +13,7 @@ import (
 	gsnet "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p/core/host"
 )
 
 type config struct {
